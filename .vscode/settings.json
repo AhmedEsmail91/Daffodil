@@ -1,0 +1,8 @@
+{
+    "terminal.integrated.profiles.windows": {
+        "WSL": {
+            "path": "C:\\WINDOWS\\System32\\wsl.exe"
+        }
+    },
+    "compile-hero.disable-compile-files-on-did-save-code": true
+}
