@@ -20,6 +20,10 @@ module.exports = {
       contact: {
         type: Sequelize.STRING
       },
+      preferred_lang: {
+        type: Sequelize.STRING,
+        defaultValue: 'en'
+      },
       createdAt: {
         allowNull: false,
         type: Sequelize.DATE

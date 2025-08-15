@@ -35,6 +35,7 @@ module.exports = (passport) => {
             const role_id=await getRole('user')
             user = await User.create({
               name: profile.displayName,
+              preferred_lang: profile._json.locale || 'en',
               email: profile.emails?.[0]?.value,
               role_id
             });

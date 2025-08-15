@@ -19,7 +19,7 @@ const oAuth2Client = new google.auth.OAuth2(
  * @param {string} summary - Event title
  * @returns {Promise<string>} - Meet link
  */
-async function createMeetEvent(tokens, startTime, endTime, summary = 'Meeting') {
+async function createMeetEvent(tokens, startTime, endTime, summary = 'Meeting',attendees=[]) {
   oAuth2Client.setCredentials({
     access_token: tokens.accessToken,
     refresh_token: tokens.refreshToken,
@@ -39,6 +39,7 @@ async function createMeetEvent(tokens, startTime, endTime, summary = 'Meeting') 
         requestId: `req-${Date.now()}`,
         conferenceSolutionKey: { type: 'hangoutsMeet' },
       },
+      attendees: attendees.map(email => ({ email })),
     },
   };
 
@@ -47,7 +48,7 @@ async function createMeetEvent(tokens, startTime, endTime, summary = 'Meeting') 
     resource: event,
     conferenceDataVersion: 1,
   });
-
+  
   const meetLink = res.data.hangoutLink;
   return meetLink;
 }
