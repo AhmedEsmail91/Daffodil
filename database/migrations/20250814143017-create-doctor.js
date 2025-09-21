@@ -24,26 +24,31 @@ module.exports = {
       },
       specialty_id: {
         type: Sequelize.UUID,
-        allowNull: false,
+        allowNull: true,
         references: { model: 'Specialties', key: 'id' },
         onUpdate: 'CASCADE',
         onDelete: 'CASCADE'
       },
       licenseNumber: {
         type: Sequelize.STRING,
-        allowNull: false
-      },
-      workingHours: {
-        type: Sequelize.JSON, // eg: { "Monday": "9am-5pm", "Tuesday": "9am-5pm" }
         allowNull: true
       },
       phoneNumber: {
         type: Sequelize.STRING,
         allowNull: true
       },
-      bio: {
+      bio_en: {
         type: Sequelize.TEXT,
         allowNull: true
+      },
+      bio_ar: {
+        type: Sequelize.TEXT,
+        allowNull: true
+      },
+      approved: {
+        type: Sequelize.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
       },
       createdAt: {
         allowNull: false,

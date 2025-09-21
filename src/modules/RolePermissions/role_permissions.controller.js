@@ -1,5 +1,5 @@
 const {catchError} = require('../../../utils/errors/catchError');
-const {Permission,Role,RolePermission,userModel}= require('./../../../database/models/index.js');
+const {Permission,Role,RolePermission,User}= require('./../../../database/models/index.js');
 const ApiFeatures= require('../../../utils/QueryBuilders/Sequelize_API_Fetchers.js');
 const { Op } = require('sequelize');
 const AppError = require('../../../utils/errors/AppError.js');
@@ -109,7 +109,7 @@ const deleteRole = catchError(async (req, res, next) => {
         return next({ status: 404, message: 'Role not found' });
     }
     // Check if role has associated users
-    const associatedUsers = await userModel.findAll({ where: { role_id: id } });
+    const associatedUsers = await User.findAll({ where: { role_id: id } });
     if (associatedUsers.length > 0) {
         return next(new AppError(400, 'Cannot delete role with associated users'));
     }
@@ -123,7 +123,7 @@ const forcedDeleteRole = catchError(async (req, res, next) => {
         return next({ status: 404, message: 'Role not found' });
     }
     // Check if role has associated users
-    const associatedUsers = await userModel.findAll({ where: { role_id: id } });
+    const associatedUsers = await User.findAll({ where: { role_id: id } });
     if (associatedUsers.length > 0) {
         associatedUsers.forEach(async (user) => {
             await user.update({ role_id: null , status: 'inactive' }); // Set role_id to null and status to inactive

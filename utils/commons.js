@@ -33,3 +33,23 @@ function checksAuthenticationDeviceAvailability(req, res, next) {
 
     next();
 }
+/**
+ * Formats a date object into a specific string format for **Africa/Cairo**.
+ * @param {Date} dateObject - The date object to format.
+ * @returns {Object} - An object containing the formatted date and time.
+ * @example
+ * const { date, time } = DateFormat(new Date()); // { date: '2023-10-10', time: '10:30 AM' }
+ */
+exports.DateFormat=(dateObject)=>{
+  const dateObj = new Date(dateObject);
+    const date = dateObj.toLocaleDateString("en-CA", {
+        timeZone: "Africa/Cairo"
+    });
+    const time = dateObj.toLocaleTimeString("en-US", {
+        timeZone: "Africa/Cairo",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true
+    });
+    return {date,time}
+}

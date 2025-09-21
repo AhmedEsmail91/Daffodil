@@ -1,32 +1,29 @@
 // services/googleMeetService.js
 const { google } = require('googleapis');
-const credentials = require('../../../credentials.json'); // From Google Cloud Console
-
-const { client_secret, client_id, redirect_uris } = credentials.web;
+const client_id = process.env.GOOGLE_CLIENT_ID;
+const client_secret = process.env.GOOGLE_CLIENT_SECRET;
+const redirect_uri = process.env.GOOGLE_CALLBACK_URL;
 
 // OAuth2 client instance
 const oAuth2Client = new google.auth.OAuth2(
   client_id,
   client_secret,
-  redirect_uris[0]
+  redirect_uri
 );
-
 /**
  * Create a Google Meet event.
- * @param {Object} tokens - { access_token, refresh_token }
+ * @param {Object} tokens - { accessToken, refreshToken }
  * @param {string} startTime - ISO date string for start
  * @param {string} endTime - ISO date string for end
  * @param {string} summary - Event title
+ * @param {string[]} attendees - List of emails
  * @returns {Promise<string>} - Meet link
  */
-async function createMeetEvent(tokens, startTime, endTime, summary = 'Meeting',attendees=[]) {
+async function createMeetEvent(tokens, startTime, endTime, summary = 'Meeting', attendees = []) {
   oAuth2Client.setCredentials({
     access_token: tokens.accessToken,
     refresh_token: tokens.refreshToken,
   });
-
-  const tokenInfo = await oAuth2Client.getTokenInfo(tokens.accessToken);
-  console.log('Scopes:', tokenInfo.scopes);
 
   const calendar = google.calendar({ version: 'v3', auth: oAuth2Client });
 
@@ -34,12 +31,12 @@ async function createMeetEvent(tokens, startTime, endTime, summary = 'Meeting',a
     summary,
     start: { dateTime: startTime, timeZone: 'UTC' },
     end: { dateTime: endTime, timeZone: 'UTC' },
+    attendees: attendees.map(email => ({ email })),
     conferenceData: {
       createRequest: {
         requestId: `req-${Date.now()}`,
         conferenceSolutionKey: { type: 'hangoutsMeet' },
       },
-      attendees: attendees.map(email => ({ email })),
     },
   };
 
@@ -48,9 +45,8 @@ async function createMeetEvent(tokens, startTime, endTime, summary = 'Meeting',a
     resource: event,
     conferenceDataVersion: 1,
   });
-  
-  const meetLink = res.data.hangoutLink;
-  return meetLink;
+
+  return res.data.hangoutLink;
 }
 
-module.exports = { createMeetEvent };
+module.exports = { createMeetEvent, oAuth2Client };

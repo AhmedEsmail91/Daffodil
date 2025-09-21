@@ -1,5 +1,6 @@
 'use strict';
 const {Permission,Role}=require('../models/index.js');
+const { Op } = require('sequelize');
 const { v4: uuidv4 } = require('uuid');
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
@@ -7,12 +8,13 @@ module.exports = {
     const permissions=await Permission.findAll()
     const adminRoleId = uuidv4();
     const userRoleId = uuidv4();
+    const doctorRoleId = uuidv4();
 
     // Insert the role
     // Check if the role already exists
-    const existingRole=await Role.findOne({where:{name_en:"admin"}});
+    const existingRole=await Role.findAll({where:{name_en: { [Op.in]: ['admin', 'user', 'doctor'] }}});
 
-    if (!existingRole) {
+    if (existingRole.length === 0) {
       // Insert the role if it doesn't exist
       await queryInterface.bulkInsert('Roles', 
       [{
@@ -25,6 +27,12 @@ module.exports = {
         id: userRoleId,
         name_en: 'user',
         name_ar: 'المستخدم',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },{
+        id: doctorRoleId,
+        name_en: 'doctor',
+        name_ar: 'طبيب',
         createdAt: new Date(),
         updatedAt: new Date()
       }]
@@ -45,8 +53,15 @@ module.exports = {
       createdAt: new Date(),
       updatedAt: new Date()
       }));
+      const doctorRolePermissions = permissions.map(permission => ({
+      id: uuidv4(),
+      role_id: doctorRoleId,
+      permission_id: permission.id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+      }));
 
-      await queryInterface.bulkInsert('RolePermissions', [...userRolePermissions,...adminRolePermissions]);
+      await queryInterface.bulkInsert('RolePermissions', [...userRolePermissions,...adminRolePermissions,...doctorRolePermissions]);
     }
   },
 
@@ -54,6 +69,6 @@ module.exports = {
     // Remove all role permissions
     await queryInterface.bulkDelete('RolePermissions', null, {});
 
-    await queryInterface.bulkDelete('Roles', { name_en: 'admin' }, {});
+    await queryInterface.bulkDelete('Roles', null, {});
   }
 };

@@ -4,7 +4,7 @@ const {
 const ApiFeatures = require("../../../utils/QueryBuilders/Sequelize_API_Fetchers.js")
 const dataQuery = require("../../../utils/QueryBuilders/dataQuery.js")
 const {
-  User: userModel,
+  User,
   AccessToken,
   Role,
   Permission
@@ -21,7 +21,7 @@ const addUser = catchError(async (req, res, next) => {
     role_id
   } = req.body;
   // checks if the role exists and if the user exists
-  const existingUser = await userModel.findOne({
+  const existingUser = await User.findOne({
     where: {
       email
     }
@@ -33,7 +33,7 @@ const addUser = catchError(async (req, res, next) => {
   if (!existingRole) {
     return next(new AppError("Role not found", 404));
   }
-  const user = await userModel.create({
+  const user = await User.create({
     username,
     email,
     password,
@@ -67,8 +67,8 @@ const getAllUsers = catchError(async (req, res, next) => {
       ]
     }
   ]
-  const features = new ApiFeatures(userModel, req.query,dQuery)
-    .search()
+  const features = new ApiFeatures(User, req.query,dQuery)
+    .search(['email'])
     .sort()
     .fields()
     .pagination();
@@ -91,7 +91,7 @@ const getAllUsers = catchError(async (req, res, next) => {
 
 // Get Single User
 const getSingleUser = catchError(async (req, res) => {
-  const User = await userModel.findByPk(req.params.id);
+  const User = await User.findByPk(req.params.id);
   if (!User) {
     return next(new AppError("User not found", 404));
   }
@@ -107,7 +107,7 @@ const updateUser = catchError(async (req, res, next) => {
     req.body.image = req.file.filename;
   }
 
-  const [updatedCount, [updatedUser]] = await userModel.update(req.body, {
+  const [updatedCount, [updatedUser]] = await User.update(req.body, {
     where: {
       id: req.params.id
     },
@@ -126,7 +126,7 @@ const updateUser = catchError(async (req, res, next) => {
 
 // Delete User
 const deleteUser = catchError(async (req, res, next) => {
-  const deletedUser = await userModel.destroy({
+  const deletedUser = await User.destroy({
     where: {
       id: req.params.id
     }
@@ -147,7 +147,14 @@ const deleteUser = catchError(async (req, res, next) => {
     User: deletedUser
   });
 });
-
+// const setContactNumber=catchError(async (req,res,next)=>{
+//    const {contact}=req.body;
+//    if(!contact){
+//        return next(new AppError("Contact information is required", 400));
+//    }
+//    req.contact=contact;
+//    next();
+// });
 module.exports = {
   addUser,
   getAllUsers,

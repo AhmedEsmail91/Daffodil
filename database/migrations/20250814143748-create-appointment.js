@@ -20,20 +20,6 @@ module.exports = {
         type: Sequelize.JSONB,
         allowNull: true
       },
-      doctor_id: {
-        type: Sequelize.UUID,
-        allowNull: false,
-        references: {
-          model: 'Doctors',
-          key: 'id'
-        },
-        onUpdate: 'CASCADE',
-        onDelete: 'SET NULL'
-      },
-      duration_min: {
-        type: Sequelize.INTEGER,
-        allowNull: false
-      },
       patient_id: {
         type: Sequelize.UUID,
         allowNull: false,
@@ -44,12 +30,33 @@ module.exports = {
         onUpdate: 'CASCADE',
         onDelete: 'SET NULL'
       },
+      schedule_id: {
+        type: Sequelize.UUID,
+        allowNull: false,
+        references: {
+          model: 'DoctorSchedules',
+          key: 'id'
+        },
+        onUpdate: 'CASCADE',
+        onDelete: 'SET NULL'
+      },
       type: {
         type: Sequelize.ENUM('consultation', 'follow-up', 'emergency'),
+        defaultValue: 'consultation',
         allowNull: false
       },
       appointment_mode: {
         type: Sequelize.ENUM('online', 'in-person'),
+        defaultValue: 'in-person',
+        allowNull: false
+      },
+      status: {
+        type: Sequelize.ENUM('scheduled', 'completed', 'canceled'),
+        defaultValue:"scheduled",
+        allowNull: false
+      },
+      turn:{
+        type: Sequelize.INTEGER,
         allowNull: false
       },
       createdAt: {

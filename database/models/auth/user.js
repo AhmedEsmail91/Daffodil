@@ -23,6 +23,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'role_id',
         as: 'role'
       });
+      this.hasOne(models.Doctor, {
+        foreignKey: 'user_id',
+        as: 'doctor'
+      });
       this.hasMany(models.ProviderAccount, {
         foreignKey: 'user_id',
         as: 'providerAccounts'

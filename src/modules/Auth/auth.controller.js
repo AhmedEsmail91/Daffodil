@@ -1,4 +1,4 @@
-const {User,Permission,Role}= require("../../../database/models");
+const {User,Permission,Role,Doctor}= require("../../../database/models");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const {catchError} = require('../../../utils/errors/catchError');
@@ -15,14 +15,10 @@ const signin = catchError(async (req, res, next) => {
     }
     // Validate email and password presence
     const { email, password } = req.body;
-    if (!email || !password) {
-        return next(new AppError("Email and password are required", 400));
-    }
-
     // Find user by email
     const user = await User.findOne({
         where: {
-            email
+            email,
         },
         include: [{
             model: Role,
@@ -39,7 +35,15 @@ const signin = catchError(async (req, res, next) => {
     if (!user) {
         return next(new AppError("Invalid email or password", 401));
     }
-
+    if(user.role.name_en === "doctor"){
+        const doctor = await Doctor.findOne({where:{user_id:user.id}});
+        if(!doctor){
+            return next(new AppError("Invalid email or password", 401));
+        }
+        if (!doctor.approved) {
+            return next(new AppError("Your account is not approved yet", 403));
+        }
+    }
     // Check password validity
     const isPasswordValid = bcrypt.compareSync(password, user.password);
     if (!isPasswordValid) {
@@ -50,7 +54,7 @@ const signin = catchError(async (req, res, next) => {
     // Generate JWT token
     const secret = Buffer.from(process.env.JWT_SECRET_KEY, 'base64');
     const token = jwt.sign(
-        {user_id: user.id, role_id: user.role.id,username:user.username},
+        {user_id: user.id, role_id: user.role.id, username:user.username, email:user.email,contact: user.contact},
         secret,
         { expiresIn: process.env.JWT_EXPIRATION || "7d" }
     );

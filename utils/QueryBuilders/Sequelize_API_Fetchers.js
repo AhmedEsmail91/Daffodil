@@ -1,5 +1,12 @@
-const {Op}=require('sequelize');
+const {Op, Sequelize}=require('sequelize');
+const dataQuery = require('./dataQuery.js');
 class ApiFeatures {
+    /**
+     * 
+     * @param {Sequelize} model 
+     * @param {params} searchQuery 
+     * @param {dataQuery} dQuery 
+     */
     constructor(model, searchQuery, dQuery=null) {
         this.model = model; // Sequelize model
         this.searchQuery = searchQuery;
@@ -7,7 +14,11 @@ class ApiFeatures {
         this.pageNum = 1;
         this.meta = {};
     }
-
+    /**
+     * Sets up pagination for the query.
+     * @param {number} pageLimit - The number of elements per page.
+     * @returns {ApiFeatures} - The current instance for method chaining.
+     */
     pagination(pageLimit = 10) {
         let pageNum = Math.ceil(Math.abs(this.searchQuery.page * 1 || 1));
         const realLimit = this.searchQuery.limit ? Math.abs(this.searchQuery.limit * 1) : pageLimit;
@@ -17,13 +28,18 @@ class ApiFeatures {
         this.pageNum = pageNum;
         return this;
     }
-
+    /**
+     * Adds filtering capabilities to the query for numeric fields.
+     * Filters are applied based on operators like gte, gt, lte, and lt.
+     * 
+     * @returns {ApiFeatures} - The current instance for method chaining.
+     */
     filtration() {
         const excluded = ["page", "sort", "pageLimit", "fields", "keyword"];
         let filters = { ...this.searchQuery };
 
         excluded.forEach(el => delete filters[el]);
-
+        
         // Sequelize where operators
         for (let key in filters) {
             if (typeof filters[key] === 'object') {
@@ -39,7 +55,12 @@ class ApiFeatures {
         this.queryOptions.where = { ...(this.queryOptions.where || {}), ...filters };
         return this;
     }
-
+    /**
+     * Adds sorting capabilities to the query.
+     * fieldname: means the field will be sorted in ascending order
+     * -fieldname: means the field will be sorted in descending order
+     * @returns {ApiFeatures} - The current instance for method chaining.
+     */
     sort() {
         if (this.searchQuery.sort) {
             let sortBy = this.searchQuery.sort.split(",").map(field =>
@@ -51,7 +72,10 @@ class ApiFeatures {
         }
         return this;
     }
-
+    /**
+     * Adds field selection capabilities to the query.
+     * @returns {ApiFeatures} - The current instance for method chaining.
+     */
     fields() {
         if (this.searchQuery.fields) {
             let fields = this.searchQuery.fields.split(",").map(f => f.trim());
@@ -59,7 +83,11 @@ class ApiFeatures {
         }
         return this;
     }
-
+    /**
+     * Adds search capabilities to the query.
+     * @param {Array<string>} columns - The columns to search in.
+     * @returns {ApiFeatures} - The current instance for method chaining.
+     */
     search(columns = ['name']) {
         if (this.searchQuery.keyword) {
             const keyword = this.searchQuery.keyword;
@@ -72,7 +100,10 @@ class ApiFeatures {
         }
         return this;
     }
-
+    /**
+     * Executes the built query and returns the result.
+     * @returns {Promise<Object>} - The result of the query execution.
+     */
     async execute() {
         const result = await this.model.findAndCountAll(this.queryOptions);
         return {

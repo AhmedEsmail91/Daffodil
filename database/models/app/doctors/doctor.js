@@ -13,9 +13,9 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'specialty_id',
         as: 'specialty'
       });
-      this.hasMany(models.Appointment, {
+      this.hasMany(models.DoctorSchedule, {
         foreignKey: 'doctor_id',
-        as: 'appointments'
+        as: 'schedules'
       });
     }
   }
@@ -45,7 +45,7 @@ module.exports = (sequelize, DataTypes) => {
     },
     specialty_id: {
       type: DataTypes.UUID,
-      allowNull: false,
+      allowNull: true,
       references: {
         model: 'Specialties',
         key: 'id'
@@ -55,19 +55,24 @@ module.exports = (sequelize, DataTypes) => {
     },
     licenseNumber: {
       type: DataTypes.STRING,
-      allowNull: false
-    },
-    workingHours: {
-      type: DataTypes.JSON, // eg: { "Monday": {time:"9am-5pm", credits:5}, "Tuesday": {time:"9am-5pm", credits:3}
       allowNull: true
     },
     phoneNumber: {
       type: DataTypes.STRING,
       allowNull: true
     },
-    bio: {
+    bio_en: {
       type: DataTypes.TEXT,
       allowNull: true
+    },
+    bio_ar: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    approved: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false
     },
     deletedAt: {
       type: DataTypes.DATE,
