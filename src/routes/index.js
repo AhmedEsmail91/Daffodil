@@ -4,7 +4,6 @@ const allRoutes=require('./pre-index.js');
 const {globalError} = require('./../../utils/errors/globalError.js');
 const authenticateDB = require('../../config/dbConnection.js');
 const logger = require('../../config/logger');
-const authRouter = require('./Auth/auth.routes.js');
 
 const bootstrap = (app) => {
     // dbAuth

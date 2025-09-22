@@ -8,6 +8,7 @@ module.exports = {
     const adminRole=await Role.findOne({where:{name_en:"admin"}});
     await queryInterface.bulkInsert('Users',[{
       id: uuidv4(),
+      username:"admin",
       email: 'admin@gmail.com',
       password: bcrypt.hashSync('Qw123456789@#$',10),
       role_id: adminRole.id,

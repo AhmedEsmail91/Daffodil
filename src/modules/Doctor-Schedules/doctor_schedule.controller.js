@@ -35,6 +35,26 @@ const getAllSchedules=catchError(async(req,res,next)=>{
         }
     });
 })
+const getScheduleById=catchError(async(req,res,next)=>{
+    const schedule_id=req.params.id;
+    const schedule=await DoctorSchedule.findByPk(schedule_id,{
+        include:[
+            {
+                model:Doctor,
+                as:'doctor',
+            }
+        ]
+    });
+    if(!schedule){
+        return next(new AppError('Schedule not found',404));
+    }
+    res.status(200).json({
+        status:'success',
+        data:{
+            schedule
+        }
+    })
+})
 const getDoctorSchedules=catchError(async (req,res,next)=>{
     const doctor_id = req.params.id;
     const schedules = await DoctorSchedule.findAll({
@@ -79,13 +99,8 @@ const setDoctorSchedule = catchError(async (req, res, next) => {
         to,
         online_cases_number
     } = req.body;
-
-    if (new Date(from) < new Date()) {
-        return next(new AppError('Start date cannot be in the past', 400));
-    }
-    if (new Date(to) < new Date(from)) {
-        return next(new AppError('End date cannot be before start date', 400));
-    }
+    let max_appointments_number=req.body?.max_appointments_number || 20;
+    
     // Find the doctor by id
     const doctor = await Doctor.findByPk(doctor_id);
     if (!doctor) {
@@ -103,12 +118,13 @@ const setDoctorSchedule = catchError(async (req, res, next) => {
     if (existingSchedule) {
         return next(new AppError('A schedule with time already exists for this doctor', 400));
     }
-
+    
     const schedule = await DoctorSchedule.create({
         doctor_id: doctor.id,
         from: new Date(from),
         to: new Date(to),
-        online_cases_number
+        online_cases_number,
+        max_appointments: max_appointments_number
     });
 
     res.status(200).json({
@@ -116,6 +132,58 @@ const setDoctorSchedule = catchError(async (req, res, next) => {
         message: 'Schedule updated successfully',
         data: {
             schedule
+        }
+    });
+})
+const setDoctorMultiSchedule = catchError(async (req, res, next) => {
+    const {
+        doctor_id,
+        schedules,
+        max_appointments_number = 20,
+        online_cases_number = 5
+    } = req.body;
+    
+    // Find the doctor by id
+    const doctor = await Doctor.findByPk(doctor_id);
+    if (!doctor) {
+        return next(new AppError('Doctor not found', 404));
+    }
+
+    const schedulesData = [];
+
+    for (const schedule of schedules) {
+        const { from, to } = schedule;
+
+        // Check if a schedule with the same doctor_id and time exists
+        const existingSchedule = await DoctorSchedule.findOne({
+            where: {
+                doctor_id: doctor.id,
+                from: new Date(from)
+            }
+        });
+
+        if (existingSchedule) {
+            // clear the schedulesData array
+            schedulesData.length = 0;
+            return next(new AppError(`A schedule with time ${from} already exists for this doctor`, 400));
+        }
+
+        let pushedSchedule={
+            doctor_id: doctor.id,
+            from: new Date(from),
+            to: new Date(to),
+            online_cases_number,
+            max_appointments: max_appointments_number
+        }
+
+        schedulesData.push(pushedSchedule);
+    }
+    await DoctorSchedule.bulkCreate(schedulesData);
+    res.status(200).json({
+        status: 'success',
+        message: 'Schedules created successfully',
+        data: {
+            schedules: schedulesData
         }
     });
 })
@@ -213,6 +281,8 @@ module.exports = {
     getDoctorScheduleForPatient,
     getDoctorSchedules,
     setDoctorSchedule,
+    setDoctorMultiSchedule,
     updateSchedule,
+    getScheduleById,
     updateScheduleForced
 }

@@ -5,7 +5,8 @@ const app = express()
 const port = process.env.NODE_ENV === "development" 
 	? (process.env.DEV_PORT || 3000) 
 	: (process.env.PORT || 3000);
-require("./src/modules/index.js")(app);
+require("./src/routes/index.js")(app);
+
 //socket server and config:
 // const {initializeSocketServer}=require('./socket-server.js');
 // const {io, server} = initializeSocketServer(app);

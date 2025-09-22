@@ -5,6 +5,15 @@
   "type": "commonjs",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "create": "npx sequelize-cli db:create",
+    "drop": "npx sequelize-cli db:drop",
+    "migrate": "npx sequelize-cli db:migrate",
+    "migrate:undo": "npx sequelize-cli db:migrate:undo",
+    "migrate:undo:all": "npx sequelize-cli db:migrate:undo:all",
+    "seed": "npx sequelize-cli db:seed",
+    "seed:all": "npx sequelize-cli db:seed:all",
+    "seed:undo": "npx sequelize-cli db:seed:undo",
+    "seed:undo:all": "npx sequelize-cli db:seed:undo:all",
     "start": "nodemon index.js"
   },
   "keywords": [],

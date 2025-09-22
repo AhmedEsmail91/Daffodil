@@ -5,66 +5,61 @@ const { Op } = require('sequelize');
 const AppError = require('../../../utils/errors/AppError.js');
 const dataQuery = require('../../../utils/QueryBuilders/dataQuery.js');
 const changeUserToDoctor=catchError(async (req, res, next) => {
+    const {doctor_id} = req.params;
+    
     const {
-        email,
         name_en, // dr.ahmed
         name_ar, // د/احمد
         specialty_id,
         licenseNumber,
         phoneNumber,
         bio_en,
-        bio_ar
+        bio_ar,
+        approved = false
     } = req.body;
-    const user = await User.findOne({ where: { email } });
-    if (!user) {
-        return next(new AppError('User not found', 404));
+
+    let doctor = await Doctor.findByPk(doctor_id, {
+        where: {
+            approved: false
+        },
+        include: [{
+            model: User,
+            as: 'user'
+        }, {
+            model: Specialty,
+            as: 'specialty'
+        }]
+    });
+
+    if(!doctor){
+        return next(new AppError('Doctor not found', 404));
     }
-    let doctor = await Doctor.findOne({ where: { user_id: user.id } });
     // check the specialty
     const specialty = await Specialty.findByPk(specialty_id);
     if (!specialty) {
         return next(new AppError('Specialty not found', 404));
     }
-    if (doctor) {
-        // Update the existing doctor
-        doctor = await doctor.update({
-            name_en,
-            name_ar,
-            specialty_id,
-            licenseNumber,
-            phoneNumber,
-            bio_en,
-            bio_ar
-        });
-    } else {
-        // Create a new doctor if not found
-        doctor = await Doctor.create({
-            user_id: user.id,
-            name_en,
-            name_ar,
-            specialty_id,
-            licenseNumber,
-            phoneNumber,
-            bio_en,
-            bio_ar
-        });
+    const doctorData={
+        name_en,
+        name_ar,
+        licenseNumber,
+        phoneNumber,
+        bio_en,
+        bio_ar,
+        approved
     }
+    doctor.setSpecialty(specialty_id);
+    doctor = await doctor.update(doctorData);
+
+    // Optionally, you can send an email to the user notifying them of their new role as a doctor.
+    // if(approved){
+    //     await sendEmail({
+    //         to: doctor.user.email,
+    //         subject: 'You are now a Doctor',
+    //         text: `Congratulations ${doctor.name_en}, you have been approved as a doctor on our platform.`
+    //     });
+    // }
     res.status(201).json({ status: 'success', data: { doctor } });
-})
-const resetDoctorPassword=catchError(async(req,res,next)=>{
-   const { email, newPassword } = req.body;
-
-   // Find the doctor by email
-   const doctor = await Doctor.findOne({ where: { email } });
-   if (!doctor) {
-       return next(new AppError('Doctor not found', 404));
-   }
-
-   // Update the doctor's password
-   doctor.password = newPassword;
-   await doctor.save();
-
-   res.status(200).json({ status: 'success', message: 'Password reset successfully' });
 })
 const getAllDoctors = catchError(async (req, res, next) => {
     const approved= req.query.approved||true;
@@ -79,4 +74,44 @@ const getAllDoctors = catchError(async (req, res, next) => {
     const results = await doctors_paginated.execute();
     (results.meta.totalResults>0) ? res.status(200).json({ status: 'success', data: { doctors: results } }) : next(new AppError('No doctors found', 404));
 });
-module.exports = { changeUserToDoctor, getAllDoctors,resetDoctorPassword }
+const updateDoctor=catchError(async (req,res,next)=>{
+    const doctor_id = req.params.id;
+    const {
+        name_en, // dr.ahmed
+        name_ar, // د/احمد
+        specialty_id,
+        licenseNumber,
+        phoneNumber,
+        bio_en,
+        bio_ar,
+        approved
+    } = req.body;
+    let doctor = await Doctor.findByPk(doctor_id);
+    if (!doctor) {
+        return next(new AppError('Doctor not found', 404));
+    }
+    // Check the specialty if provided
+    if (specialty_id) {
+        const specialty = await Specialty.findByPk(specialty_id);
+        if (!specialty) {
+            return next(new AppError('Specialty not found', 404));
+        }
+    }
+    // Update only the fields that are provided in the request body
+    const updatedFields = Object.fromEntries(
+        Object.entries({
+            name_en,
+            name_ar,
+            specialty_id,
+            licenseNumber,
+            phoneNumber,
+            bio_en,
+            bio_ar,
+            approved
+        }).filter(([_, value]) => value !== undefined)
+    );
+
+    doctor = await doctor.update(updatedFields);
+    res.status(200).json({ status: 'success', data: { doctor } });
+})
+module.exports = { changeUserToDoctor, getAllDoctors, updateDoctor }

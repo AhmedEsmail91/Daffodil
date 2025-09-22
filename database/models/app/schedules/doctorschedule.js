@@ -43,6 +43,10 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: false
     },
+    max_appointments:{
+      type: DataTypes.INTEGER,
+      allowNull: false
+    },
     deletedAt:{
       type: DataTypes.DATE,
       allowNull: true

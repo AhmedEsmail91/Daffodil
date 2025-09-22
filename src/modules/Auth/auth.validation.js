@@ -12,8 +12,9 @@ const signinSchemaVal = Joi.object({
 })
 
 const changePasswordSchemaVal = Joi.object({
-    password: Joi.string().pattern(/^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$/).required(),
-    rePassword: Joi.valid(Joi.ref('password')).required(),
+    current: Joi.string().pattern(/^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$/).required(),
+    new: Joi.string().pattern(/^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$/).required(),
+    reNew: Joi.valid(Joi.ref('new')).required(),
 })
 const OTPScehma = Joi.object({
     otp: Joi.string().length(6).required(),

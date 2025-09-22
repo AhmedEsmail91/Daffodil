@@ -58,9 +58,38 @@ const signin = catchError(async (req, res, next) => {
         secret,
         { expiresIn: process.env.JWT_EXPIRATION || "7d" }
     );
-    res.status(200).json({ message: "Login successful", token });
+    res.status(200).json({ message: "Login successful", token,role:user.role.name_en });
 });
-
+const changePassword = catchError(async (req, res, next) => {
+    const userId = req.auth.user_id;
+    const { current:oldPassword, new: newPassword } = req.body;
+    const user = await User.findByPk(userId,{include:[{model:Role,as:'role'}]});
+    if (!user) {
+        return next(new AppError("User not found", 404));
+    }
+    const isOldPasswordValid = bcrypt.compareSync(oldPassword, user.password);
+    if (!isOldPasswordValid) {
+        return next(new AppError("Old password is incorrect", 401));
+    }
+    // hashing in the db hooks of the user model
+    user.password = newPassword;
+    await user.save();
+    // regenerate token
+    const secret = Buffer.from(process.env.JWT_SECRET_KEY, 'base64');
+    const token = jwt.sign(
+        {
+            user_id: user.id,
+            role_id: user.role ? user.role.id : null,
+            username: user.username || null,
+            email: user.email,
+            contact: user.contact || null
+        },
+        secret,
+        { expiresIn: process.env.JWT_EXPIRATION || "7d" }
+    );
+    res.status(200).json({ message: "Password changed successfully", token });
+});
 module.exports= {
-    signin
+    signin,
+    changePassword
 };
