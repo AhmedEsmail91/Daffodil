@@ -1,18 +1,15 @@
+const { Auth } = require('./../../middlewares/auth.js');
+const {getScheduleById, getDoctorSchedules}=require('./../../modules/Doctor-Schedules/doctor_schedule.controller.js')
+
 const express=require('express')
 const router=express.Router()
-const  validation  = require('../../middlewares/validation');
 
-const {getAllSchedules,setDoctorSchedule, updateSchedule, updateScheduleForced, getScheduleById, setDoctorMultiSchedule}=require('./../../modules/Doctor-Schedules/doctor_schedule.controller.js')
-const {setSchedule,setMultiSchedule}=require('./../../modules/Doctor-Schedules/doctor_schedule.validation.js')
+const prefix = 'schedules';
 
-const prefix='schedules';
+const manage_roles=['schedule-read'];
 
-
-router.get(`/${prefix}/`,getAllSchedules);
+router.use(Auth.allowedTo(...manage_roles));
+router.get(`/${prefix}/`,getDoctorSchedules);
 router.get(`/${prefix}/:id`,getScheduleById);
-router.post(`/${prefix}/set`,validation(setSchedule),setDoctorSchedule);
-router.post(`/${prefix}/set/multi`,validation(setMultiSchedule),setDoctorMultiSchedule);
-router.put(`/${prefix}/update/:id`,updateSchedule);
-router.put(`/${prefix}/forced-update/:id`,updateScheduleForced);
 
 module.exports = router;

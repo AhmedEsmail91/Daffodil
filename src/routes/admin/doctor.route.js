@@ -23,8 +23,9 @@ router.use(Auth.Authenticate,
 );
 
 
-
-router.get('/', getAllDoctors);
-router.post('/changeUserToDoctor/:doctor_id', changeUserToDoctor);
-router.put('/:id', updateDoctor);
+const prefix='doctors'
+// Routes
+router.get(`/${prefix}`, getAllDoctors);
+router.post(`/${prefix}/changeUserToDoctor/:doctor_id`, changeUserToDoctor);
+router.put(`/${prefix}/:id`, updateDoctor);
 module.exports = router;

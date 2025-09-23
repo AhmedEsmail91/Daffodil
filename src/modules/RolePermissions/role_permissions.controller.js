@@ -68,7 +68,7 @@ const createRole = catchError(async (req, res, next) => {
 
         await role.setPermissions(permissionRecords);
     }
-
+    
     res.status(201).json({ success: true, data: role });
 });
 const updateRole = catchError(async (req, res, next) => {

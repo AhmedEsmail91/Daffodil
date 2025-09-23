@@ -1,14 +1,14 @@
 const {catchError} = require('../../../utils/errors/catchError');
 const {User,Doctor,Appointment,DoctorSchedule}= require('./../../../database/models/index.js');
 const ApiFeatures= require('../../../utils/QueryBuilders/Sequelize_API_Fetchers.js');
-const { Op } = require('sequelize');
+const { Op, where } = require('sequelize');
 const AppError = require('../../../utils/errors/AppError.js');
 const dataQuery = require('../../../utils/QueryBuilders/dataQuery.js');
 const {sendApologize}=require('../../services/emails/sender-config/sendEmail.js');
 const {DateFormat}=require('../../../utils/commons.js')
 
 const getAllSchedules=catchError(async(req,res,next)=>{
-    const status=req.query?.status || undefined;
+    const status=req.query?.status || 'active';
     const dQuery=new dataQuery();
     dQuery.include = [
         {
@@ -56,13 +56,38 @@ const getScheduleById=catchError(async(req,res,next)=>{
     })
 })
 const getDoctorSchedules=catchError(async (req,res,next)=>{
-    const doctor_id = req.params.id;
-    const schedules = await DoctorSchedule.findAll({
+    const {user_id} = req.auth;
+    const {status} = req.query||'active';
+    // Find the doctor associated with the user_id
+    const doctor = await Doctor.findOne({
         where: {
-            doctor_id
+            user_id
         }
     });
-    if (!schedules) {
+    // find the schedules
+    if (!doctor) {
+        return next(new AppError('Doctor not found', 404));
+    }
+    const dQuery=new dataQuery();
+    dQuery.where = {
+        doctor_id: doctor.id,
+        ...(status === 'active' && {
+            from: {
+                [Op.gte]: new Date()
+            }
+        })
+    };
+    dQuery.include = [
+        {model:Appointment,as:'appointments'}
+    ];
+    dQuery.order = [['from', 'ASC']];
+
+    const schedulesQuery=new ApiFeatures(DoctorSchedule, req.query,dQuery)
+        .pagination();
+
+    const schedules=await schedulesQuery.execute();
+
+    if (!schedules.meta.totalResults) {
         return next(new AppError('Schedule not found', 404));
     }
     res.status(200).json({
