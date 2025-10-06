@@ -14,8 +14,8 @@
     "seed:all": "npx sequelize-cli db:seed:all",
     "seed:undo": "npx sequelize-cli db:seed:undo",
     "seed:undo:all": "npx sequelize-cli db:seed:undo:all",
-    "dev": "nodemon index.js",
-    "start": "node index.js"
+    "dev": "cross-env TZ=Africa/Cairo nodemon index.js",
+    "start": "cross-env TZ=Africa/Cairo node index.js"
   },
   "keywords": [],
   "author": "",
@@ -26,6 +26,8 @@
     "bcrypt": "^6.0.0",
     "chalk": "^4.1.0",
     "compression": "^1.8.1",
+    "cookie": "^1.0.2",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
     "dotenv": "^17.2.0",
@@ -35,6 +37,7 @@
     "helmet": "^8.1.0",
     "joi": "^17.13.3",
     "jsonwebtoken": "^9.0.2",
+    "moment-timezone": "^0.6.0",
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
     "nodemailer": "^7.0.5",
@@ -52,6 +55,7 @@
     "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {
+    "cross-env": "^10.1.0",
     "sequelize-cli": "^6.6.3"
   }
 }

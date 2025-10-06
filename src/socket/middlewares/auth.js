@@ -1,5 +1,6 @@
 const redisClient=require('../../../config/redis.js');
 const jwt=require('jsonwebtoken');
+const cookie=require("cookie");
 const { getFullUserData } = require('../../middlewares/auth.js');
 const errorEvent = require('../utils/errors/EventError.js');
 const env_secret = process.env.JWT_SECRET_KEY;
@@ -11,12 +12,35 @@ const secret = Buffer.from(env_secret, 'base64');
  * @param {Function} next - The next middleware function.
  * @returns 
  */
+async function authAndAttachToken(socket, data, next) {
+    try {
+        const { handshake } = socket;
+        const cookies = cookie.parse(socket.handshake.headers.cookie || "") || handshake.auth?.token ||handshake.headers?.authorization;
+        const token = cookies.token;
+        if (!token) return next(new Error("No token provided"));
+        if (!token) {
+            socket.emit('error_event', { message: 'No token provided' });
+        }
+        if (token && typeof token !== 'string' || !token.trim()) {
+            return errorEvent(socket, 'unauthorized', 'Invalid token format', {}, 401);
+        }
+        const decoded = jwt.verify(token, secret);
+        if (!decoded || !decoded.user_id) {
+            return errorEvent(socket, 'unauthorized', 'Invalid token payload', {}, 401);
+        }
+        socket.auth = decoded;
+        // console.log('Socket authenticated:', socket.id, 'User ID:', decoded.user_id);
+        next();
+    } catch (err) {
+        errorEvent(socket, 'unauthorized', err.message);
+    }
+}
 async function Authenticate(socket, data, next) {
     try {
         const { handshake } = socket;
-        const token =
-            handshake.auth?.token ||
-            handshake.headers?.authorization;
+        const cookies = cookie.parse(socket.handshake.headers.cookie || "") || handshake.auth?.token ||handshake.headers?.authorization;
+        const token = cookies.token;
+        if (!token) return next(new Error("No token provided"));
 
         if (!token) {
             return errorEvent(socket, 'unauthorized', 'No token provided', {}, 401);
@@ -29,7 +53,7 @@ async function Authenticate(socket, data, next) {
             return errorEvent(socket, 'unauthorized', 'Invalid token payload', {}, 401);
         }
         socket.auth = decoded;
-        console.log('Socket authenticated:', socket.id, 'User ID:', decoded.user_id);
+        // console.log('Socket authenticated:', socket.id, 'User ID:', decoded.user_id);
         next();
     } catch (err) {
         errorEvent(socket, 'unauthorized', err.message);
@@ -45,7 +69,6 @@ function allowedTo(permissions = [], and = false) {
     return async function (socket, data, next) {
         try {
             const user = socket.auth;
-            console.log('Socket user:', user);
             if (!user) {
                 return eventError(socket, 'forbidden', 'User not authenticated');
             }
@@ -86,6 +109,7 @@ async function getLang(socket, data, next) {
 
 module.exports = {
     Authenticate,
+    authAndAttachToken,
     allowedTo,
     getLang,
 };

@@ -45,9 +45,10 @@ async function createMeetEvent(tokens, startTime, endTime, summary, notes, atten
     calendarId: 'primary',
     resource: event,
     conferenceDataVersion: 1,
+    sendUpdates: 'all',
   });
 
-  return res.data.hangoutLink;
+  return res;
 }
 /**
  * Create a Google Meet event.

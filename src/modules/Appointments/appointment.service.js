@@ -35,10 +35,9 @@ const announceCalendarEvent = async (doctor_user_id, start, end, summary, mode, 
     accessToken,
     refreshToken: providerAccount.refreshToken,
   };
-  let calenderLink;
-  if(mode=="online")
+  if (mode == "online") {
     // Create Google Meet event
-    calenderLink = await createMeetEvent(
+    let link = await createMeetEvent(
       tokens,
       start,
       end,
@@ -46,9 +45,11 @@ const announceCalendarEvent = async (doctor_user_id, start, end, summary, mode, 
       notes,
       attendees
     );
-  else{
+    return link;
+
+  } else {
     // Create regular calendar event
-    calenderLink = await createCalendarEvent(
+    const in_person = await createCalendarEvent(
       tokens,
       start,
       end,
@@ -56,7 +57,7 @@ const announceCalendarEvent = async (doctor_user_id, start, end, summary, mode, 
       notes,
       attendees
     );
-  return calenderLink;
+  return in_person;
   }
 };
 module.exports={

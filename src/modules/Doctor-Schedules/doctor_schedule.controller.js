@@ -1,5 +1,5 @@
 const {catchError} = require('../../../utils/errors/catchError');
-const {User,Doctor,Appointment,DoctorSchedule}= require('./../../../database/models/index.js');
+const {User,Doctor,Appointment,DoctorSchedule, sequelize,Scope}= require('./../../../database/models/index.js');
 const ApiFeatures= require('../../../utils/QueryBuilders/Sequelize_API_Fetchers.js');
 const { Op, where } = require('sequelize');
 const AppError = require('../../../utils/errors/AppError.js');
@@ -10,29 +10,30 @@ const {DateFormat}=require('../../../utils/commons.js')
 const getAllSchedules=catchError(async(req,res,next)=>{
     const status=req.query?.status || 'active';
     const dQuery=new dataQuery();
+    dQuery.where={
+        status:status==="all" ? {[Op.in]:['active','inactive']} : status,
+        ...(status === 'active' && {
+            from: {
+                [Op.gte]: new Date(),
+            }
+        })
+    };
     dQuery.include = [
         {
-            model: DoctorSchedule,
-            as: 'schedules',
-            where: {
-                ...(status === 'active' && {
-                    from: {
-                        [Op.gte]: new Date(),
-                    }
-                })
-            }
-        }
+            model: Doctor,
+            as: 'doctor',
+            attributes: ['id', 'name_en', 'name_ar']
+        },
+        {model: Appointment, as: 'appointments', attributes: ['id', 'status']}
     ];
-    const doctors=new ApiFeatures(Doctor, req.query,dQuery).search(['name_en'])
+    const doctors=new ApiFeatures(DoctorSchedule, req.query,dQuery).search(['from']).pagination().sort();
     const schedules = await doctors.execute();
     if (schedules.meta.totalResults === 0) {
         return next(new AppError('Doctor Schedules not found', 404));
     }
     res.status(200).json({
         status: 'success',
-        data: {
-            schedules
-        }
+        schedules
     });
 })
 const getScheduleById=catchError(async(req,res,next)=>{
@@ -52,6 +53,44 @@ const getScheduleById=catchError(async(req,res,next)=>{
         status:'success',
         data:{
             schedule
+        }
+    })
+})
+const getScheduleAppointments=catchError(async(req,res,next)=>{
+    const schedule_id=req.params.id;
+    const schedule=await DoctorSchedule.findByPk(schedule_id);
+    if(!schedule){
+        return next(new AppError('Schedule not found',404));
+    }
+    const dQuery=new dataQuery();
+    dQuery.where={
+        schedule_id
+    };
+    dQuery.include=[
+        {
+            model:User,
+            as:'patient',
+            attributes:['id','username','email','preferred_lang']
+        },
+        {
+            model:Scope,
+            as:'scope',
+        },
+        {
+            model:DoctorSchedule,
+            as:'schedule'
+        }
+    ];
+    dQuery.order=[['from','ASC']];
+    const appointments=new ApiFeatures(Appointment,req.query,dQuery).pagination().sort().search(['patient.username','patient.email']);
+    const results=await appointments.execute();
+    if(results.meta.totalResults === 0){
+        return next(new AppError('No appointments found for this schedule',404));
+    }
+    res.status(200).json({
+        status:'success',
+        data:{
+            appointments:results
         }
     })
 })
@@ -141,6 +180,7 @@ const setDoctorSchedule = catchError(async (req, res, next) => {
     });
 
     if (existingSchedule) {
+        console.log(existingSchedule);
         return next(new AppError('A schedule with time already exists for this doctor', 400));
     }
     
@@ -212,12 +252,7 @@ const setDoctorMultiSchedule = catchError(async (req, res, next) => {
         }
     });
 })
-const updateSchedule=catchError(async(req,res,next)=>{
-    const {
-        from,
-        to,
-        online_cases_number
-    } = req.body;
+const toggleScheduleStatus=catchError(async(req,res,next)=>{
     const schedule_id = req.params.id;
     // Find the doctor by id
     const schedule = await DoctorSchedule.findByPk(schedule_id);
@@ -227,34 +262,27 @@ const updateSchedule=catchError(async(req,res,next)=>{
     // checks if that schedule has appointments or not
     const hasAppointments = await Appointment.count({
         where: {
-            doctor_id: schedule.doctor_id,
             schedule_id: schedule_id,
-            status: "scheduled"
+            status: {[Op.in]: ['scheduled', 'pending']}
         }
     }) > 0;
 
     if (hasAppointments) {
-        return next(new AppError('Cannot update schedule as it has existing appointments not completed.', 400));
+        return next(new AppError('schedule.appointmentsExist', 400));
     }
-    const updatedSchedule = await DoctorSchedule.update({
-        from,
-        to,
-        online_cases_number
-    }, {
-        where: {
-            id: schedule_id,
-            doctor_id: schedule.doctor_id
-        }
-    });
-    if (updatedSchedule[0] === 0) {
-        return next(new AppError('Schedule not found or not updated', 404));
+    if (schedule.status === 'active') {
+        schedule.status = 'inactive';
+    } else if (schedule.status === 'inactive') {
+        schedule.status = 'active';
     }
+    schedule.updatedAt = new Date();
     await schedule.save();
     res.status(200).json({
         status: 'success',
         message: 'Schedule updated successfully'
     });
 })
+
 const updateScheduleForced=catchError(async (req,res,next)=>{
     const schedule_id = req.params.id;
     const {
@@ -307,7 +335,8 @@ module.exports = {
     getDoctorSchedules,
     setDoctorSchedule,
     setDoctorMultiSchedule,
-    updateSchedule,
+    toggleScheduleStatus,
     getScheduleById,
+    getScheduleAppointments,
     updateScheduleForced
 }

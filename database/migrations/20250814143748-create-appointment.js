@@ -40,6 +40,16 @@ module.exports = {
         onUpdate: 'CASCADE',
         onDelete: 'SET NULL'
       },
+      scope_id: {
+        type: Sequelize.UUID,
+        allowNull: false,
+        references: {
+          model: 'Scopes',
+          key: 'id'
+        },
+        onUpdate: 'CASCADE',
+        onDelete: 'SET NULL'
+      },
       type: {
         type: Sequelize.ENUM('consultation', 'follow-up', 'emergency'),
         defaultValue: 'consultation',
@@ -51,13 +61,17 @@ module.exports = {
         allowNull: false
       },
       status: {
-        type: Sequelize.ENUM('scheduled', 'completed', 'canceled'),
-        defaultValue:"scheduled",
+        type: Sequelize.ENUM('pending','scheduled', 'completed', 'canceled'),
+        defaultValue:"pending",
         allowNull: false
       },
       turn:{
         type: Sequelize.INTEGER,
-        allowNull: false
+        allowNull: true
+      },
+      extra_data:{
+        type: Sequelize.JSONB,
+        allowNull: true
       },
       createdAt: {
         allowNull: false,

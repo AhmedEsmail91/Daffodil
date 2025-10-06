@@ -93,6 +93,7 @@ module.exports = (passport) => {
       async (req, accessToken, refreshToken, profile, done) => {
         try {
           const user = await handleGoogleAuth(req, accessToken, refreshToken, profile);
+          // console.log(JSON.stringify(profile))
           if(req.query.state === 'doctor' && user.doctor?.approved === false){
             // done (err, user, object)
             return done(new AppError('Your account is pending approval by the admin.',401), null);

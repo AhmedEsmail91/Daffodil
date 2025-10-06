@@ -4,15 +4,22 @@ const helmet = require('helmet');
 const compression = require('compression');
 const multer = require('multer');
 const bodyParser = require('body-parser');
+const cookieParser = require('cookie-parser');
 module.exports = (app) => {
     app.use(express.json());
     app.use(bodyParser.urlencoded({ extended: false }));
     app.use(cors({
-      origin: 'http://localhost:8080', // your React dev server origin
+      origin: ['http://localhost:8080','http://localhost:8081','http://localhost:8082',"http://localhost:5173",
+        'http://192.168.1.5:8080'
+      ], // your React dev server origin
+      // origin: "*", // your React dev server origin
       credentials: true,               // allow cookies / headers
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
       allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept'],
-  }));
+    }));
+    app.use('/uploads', express.static('uploads'));
+
+    app.use(cookieParser());
     app.use(helmet());
     app.use(compression());
     app.use(require('./1stMw.js').loggingUrl);

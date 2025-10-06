@@ -37,6 +37,87 @@ module.exports = {
         updatedAt: new Date()
       }]
       );
+    // ========================
+    // Permissions by Role
+    // ========================
+
+    // 🔹 Admin (full system control)
+    const adminPermissions = [
+      // users
+      'user-create', 'user-read', 'user-update', 'user-delete',
+
+      // profiles (can manage anyone’s profile)
+      'profile-create', 'profile-read', 'profile-update', 'profile-delete',
+
+      // schedules
+      'schedule-create', 'schedule-read', 'schedule-update', 'schedule-delete',
+
+      // appointments
+      'appointment-create', 'appointment-read', 'appointment-update', 'appointment-delete',
+
+      // specialties
+      'specialty-create', 'specialty-read', 'specialty-update', 'specialty-delete',
+
+      // roles & permissions
+      'role-create', 'role-read', 'role-update', 'role-delete',
+      'permission-read',
+
+      // invoices/payments
+      // 'invoice-create', 'invoice-read', 'invoice-update', 'invoice-delete',
+
+      // notifications
+      // 'notification-create', 'notification-read', 'notification-update', 'notification-delete',
+    ];
+
+    // 🔹 Doctor (manages own patients/schedules)
+    const doctorPermissions = [
+      // profile (own)
+      'profile-read', 'profile-update',
+
+      // schedules (their own)
+      'schedule-read', 'schedule-update',
+
+      // appointments (their patients)
+      'appointment-read', 'appointment-update',
+
+      // patients (via profile)
+      // 'profile-read:any', // limited by business logic: only patients linked to appointments
+
+      // prescriptions & medical records
+      // 'prescription-create', 'prescription-read', 'prescription-update',
+      // 'medicalRecord-create', 'medicalRecord-read',
+
+      // notifications
+      // 'notification-read',
+    ];
+
+    // 🔹 Patient (manages their own appointments)
+    const patientPermissions = [
+      // profile (own)
+      'profile-read', 'profile-update',
+
+      // appointments (self-service)
+      'appointment-create', 'appointment-read', 'appointment-update', 'appointment-delete',
+
+      // schedules (to check availability)
+      'schedule-read',
+
+      // doctors (browse public info only)
+      'doctor-read',
+
+      // specialties
+      'specialty-read',
+
+      // prescriptions & medical records (own only)
+      // 'prescription-read',
+      // 'medicalRecord-read',
+
+      // invoices/payments (own only)
+      // 'invoice-read',
+
+      // notifications
+      // 'notification-read',
+    ];
 
       // Assign all permissions to the role
       const adminRolePermissions = permissions.map(permission => ({

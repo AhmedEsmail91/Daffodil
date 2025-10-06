@@ -10,7 +10,6 @@ const bootstrap = (app) => {
     authenticateDB();
     // loading Basic Configurations
     require('./../../utils/serverBasicConfig.js')(app);
-    app.use('/uploads', express.static('uploads'));
 
     // check app is running
     app.get('/', (req, res) => res.send('App is running!'))

@@ -55,7 +55,12 @@ const checksModelsName = (existingPermissions) => {
       }
     });
   });
-
+  permissions.push({
+    id: uuidv4(),
+    name: "chat-manage",
+    createdAt: timestamp,
+    updatedAt: timestamp
+  })
   return permissions;
 };
 module.exports = {
@@ -68,7 +73,6 @@ module.exports = {
       return;
     }
     await queryInterface.bulkInsert('Permissions', permissions);
-    await Permission.create({'name':"socket-read"});
   },
 
   async down(queryInterface, Sequelize) {

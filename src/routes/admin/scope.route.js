@@ -1,0 +1,10 @@
+const express=require('express');
+const router=express.Router();
+const {createScope, getAllScopes, deleteScope}=require('../../modules/Scope/scope.controller.js');
+const validation=require('../../middlewares/validation.js');
+const ScopeVal=require('../../modules/Scope/scope.validation.js');
+const prefix='scopes';
+router.post(`/${prefix}`, validation(ScopeVal.createScope), createScope);
+router.get(`/${prefix}`, getAllScopes);
+router.delete(`/${prefix}/:id`, validation(ScopeVal.deleteScope), deleteScope);
+module.exports=router;

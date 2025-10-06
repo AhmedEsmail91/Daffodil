@@ -31,6 +31,11 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'user_id',
         as: 'providerAccounts'
       });
+      // the following association is for patients
+      this.hasMany(models.Appointment, {
+        foreignKey: 'patient_id',
+        as: 'appointments'
+      });
     }
   }
   User.init({

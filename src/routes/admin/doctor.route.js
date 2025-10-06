@@ -2,7 +2,8 @@ const express=require('express')
 const router=express.Router()
 const  validation  = require('../../middlewares/validation');
 const {Auth}=require('./../../middlewares/auth.js');
-const {changeUserToDoctor, getAllDoctors, updateDoctor} = require('./../../modules/Doctor/doctor.controller.js');
+const {changeUserToDoctor, getAllDoctors,getDoctorsShort, updateDoctor} = require('./../../modules/Doctor/doctor.controller.js');
+const {getDoctorsVal} = require('./../../modules/Doctor/doctor.validation.js');
 const manage_roles=[
     'role-create',
     'role-read',
@@ -25,7 +26,8 @@ router.use(Auth.Authenticate,
 
 const prefix='doctors'
 // Routes
-router.get(`/${prefix}`, getAllDoctors);
+router.get(`/${prefix}`,validation(getDoctorsVal), getAllDoctors);
+router.get(`/${prefix}/short`,validation(getDoctorsVal), getDoctorsShort);
 router.post(`/${prefix}/changeUserToDoctor/:doctor_id`, changeUserToDoctor);
 router.put(`/${prefix}/:id`, updateDoctor);
 module.exports = router;

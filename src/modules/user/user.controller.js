@@ -147,6 +147,7 @@ const deleteUser = catchError(async (req, res, next) => {
     User: deletedUser
   });
 });
+
 // const setContactNumber=catchError(async (req,res,next)=>{
 //    const {contact}=req.body;
 //    if(!contact){

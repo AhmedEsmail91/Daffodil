@@ -9,10 +9,8 @@ const {
 const schemas=require('./../../modules/Appointments/appointments.validation.js')
 const {Auth}=require('./../../middlewares/auth.js');
 
-const manage_roles=['appointment-read','appointment-create'];
-router.use(Auth.allowedTo(...manage_roles));
 const prefix='appointments'
-
+// creating appointment for patient
 router.post(`/${prefix}`, uploadFields(fields = [{name: "images",maxCount: 10}], uploadPath = 'Appointments/images', type = 'image'),
     validation(schemas.makeAppointment),
     createAppointment);

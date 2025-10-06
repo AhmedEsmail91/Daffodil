@@ -35,6 +35,10 @@ module.exports = {
         allowNull: false,
         type: Sequelize.DATE
       },
+      link:{
+        type: Sequelize.STRING,
+        allowNull: true
+      },
       deletedAt: {
         allowNull: true,
         type: Sequelize.DATE

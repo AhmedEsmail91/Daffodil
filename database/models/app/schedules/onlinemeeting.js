@@ -38,6 +38,10 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.ARRAY(DataTypes.STRING),
       allowNull: false
     },
+    link:{
+      type: DataTypes.STRING,
+      allowNull: true
+    },
     deletedAt: {
       type: DataTypes.DATE,
       allowNull: true

@@ -23,12 +23,11 @@ const loggingUrl = (req, res, next) => {
         const url = new URL(fullUrl);
         global.baseUrl = `${url.protocol}//${url.host}${url.pathname}`;
         global.currentRequest = req;
-
         const content=`${req.method} [${new Date().toISOString()}] ->  ${url.pathname} - ${elapsedTimeInMs} ms  ${Object.keys(req.query).length > 0 ?'- Query:' + JSON.stringify(req.query) : ''}`  ;
         const neutral_color='#00ff80ff'
         const dangerous_color='#ff0000ff'
 
-        req.method.includes('POST','PUT','DELETE') ?
+        req.method.includes('POST','PUT','DELETE','PATCH') ?
             console.log(chalk.hex(dangerous_color)(content)) :
             console.log(chalk.hex(neutral_color)(content));
     });

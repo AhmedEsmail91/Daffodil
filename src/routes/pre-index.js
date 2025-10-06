@@ -2,9 +2,9 @@ const adminRoute = require('./admin/index.routes.js');
 const doctorRoute = require('./doctor/index.routes.js');
 const patientRoute = require('./patient/index.routes.js');
 
-const authRouter = require('./../modules/Auth/auth.routes.js');
-const passport = require('./../modules/Auth-Passport/passport.config.js');
-const googlePassportRoute = require('./../modules/Auth-Passport/strategies/google/google.routes.js');
+const authRouter = require('./../modules/Auth/local/auth.routes.js');
+const passport = require('./../../config/passport.js');
+const googlePassportRoute = require('./../routes/auth/google.routes.js');
 
 
 module.exports=(app,prefix)=>{
@@ -16,5 +16,5 @@ module.exports=(app,prefix)=>{
     //features routes:
     app.use(`/${prefix}`, adminRoute);
     app.use(`/${prefix}`, doctorRoute);
-    app.use(`/${prefix}`, patientRoute);   
+    app.use(`/${prefix}`, patientRoute);
 }

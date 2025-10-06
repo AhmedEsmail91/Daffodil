@@ -5,10 +5,6 @@ const {getAllSchedules,getScheduleById}=require('./../../modules/Doctor-Schedule
 const prefix='schedules';
 const {Auth}=require('./../../middlewares/auth.js');
 
-const manage_roles=['schedule-read'];
-
-router.use(Auth.allowedTo(...manage_roles));
-
 router.get(`/${prefix}/`,getAllSchedules);
 router.get(`/${prefix}/:id`,getScheduleById);
 

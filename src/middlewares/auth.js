@@ -36,23 +36,39 @@ const getFullUserData = async (user_id) => {
 const Auth = class Auth {
   // Only verify token and attach decoded data to req.auth
   static Authenticate = catchError(async (req, res, next) => {
-    const authHeader = req.headers['authorization'];
-    let token = null;
-
-    if (authHeader?.startsWith("Bearer ")) {
-      token = authHeader.split(" ")[1] || req.headers?.token;
-    }
+    const getToken = () => {
+      if (req.cookies?.token) {
+        return req.cookies.token;
+      }
+      // Fallback: custom header token
+      if (req.headers?.token) {
+        return req.headers.token;
+      }
+      // Fallback: Bearer token in Authorization header
+      const authHeader = req.headers['authorization'];
+      if (authHeader?.startsWith("Bearer ")) {
+        return authHeader.split(" ")[1];
+      }
+      return null;
+  }
+    const token = getToken();
 
     if (token && typeof token === "string" && token.trim() && token !== "null" && token !== "undefined") {
       const env_secret = process.env.JWT_SECRET_KEY;
       const secret = Buffer.from(env_secret, 'base64');
-      const decoded = jwt.verify(token, secret);
-      req.auth = decoded; // attach decoded token data
-      return next();
+      try {
+        const decoded = jwt.verify(token, secret);
+        req.auth = decoded; // attach decoded token data
+        return next();
+      } catch (err) {
+        if (err.name === "TokenExpiredError") {
+          return next(new AppError("Token has expired", 401));
+        }
+        return next(new AppError("Invalid token", 401));
+      }
     }
     return next(new AppError("Unauthorized", 401));
   });
-
   static getProviderData=catchError(async (req,res,next)=>{
     const userId = req.auth.user_id;
     
@@ -92,7 +108,7 @@ const Auth = class Auth {
       if (!permissions.every(permission => currentUserPermissions?.includes(permission))) {
         return next(new AppError("You are not allowed to access this route", 403));
       }
-
+      // console.log(currentUserPermissions)
       return next();
     });
   };
@@ -107,7 +123,7 @@ const Auth = class Auth {
       if (!permissions.some(permission => currentUserPermissions?.includes(permission))) {
         return next(new AppError("You are not allowed to access this route", 403));
       }
-
+      // console.log(currentUserPermissions)
       return next();
     });
   };

@@ -1,9 +1,9 @@
 const express = require("express");
 const authVal = require('./auth.validation')
-const validation = require("../../middlewares/validation");
+const validation = require("../../../middlewares/validation");
 
 const authController=require('./auth.controller')
-const authMiddleware = require("../../middlewares/auth");
+const authMiddleware = require("../../../middlewares/auth");
 
 const authRouter = express.Router();
 
@@ -12,7 +12,10 @@ const authRouter = express.Router();
 //     authController.signup);
 // authRouter.post('/verifyOTP', validation(authVal.OTPScehma), authController.verifyOTP);
 
+authRouter.get('/me', authMiddleware.Auth.Authenticate, authController.verifyToken);
+authRouter.post('/refresh', authController.refreshToken);
 authRouter.post('/login', validation(authVal.signinSchemaVal), authController.signin);
+authRouter.post('/logout', authController.logout);
 authRouter.put('/changePassword',authMiddleware.Auth.Authenticate, validation(authVal.changePasswordSchemaVal), authController.changePassword);
 
 // authRouter.post('/resetPassword', validation(authVal.resetPasswordRequestVal), authController.resetPasswordRequest);

@@ -13,6 +13,14 @@
           foreignKey: 'patient_id',
           as: 'patient'
         });
+        this.hasOne(models.OnlineMeeting,{
+          foreignKey:'appointment_id',
+          as:'online_meeting'
+        });
+        this.belongsTo(models.Scope,{
+          foreignKey: 'scope_id',
+          as: 'scope'
+        });
       }
     }
     Appointment.init({
@@ -61,13 +69,23 @@
         allowNull: false
       },
       status:{
-        type: DataTypes.ENUM('scheduled', 'completed', 'canceled'),
-        defaultValue: 'scheduled',
+        type: DataTypes.ENUM('pending','scheduled', 'completed', 'canceled'),
+        defaultValue: 'pending',
         allowNull: false
       },
       turn:{
         type: DataTypes.INTEGER,
-        allowNull: false
+        allowNull: true
+      },
+      scope_id: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        references: {
+          model: 'Scopes',
+          key: 'id'
+        },
+        onUpdate: 'CASCADE',
+        onDelete: 'CASCADE'
       },
       createdAt: {
         allowNull: false,
@@ -80,7 +98,12 @@
       deletedAt: {
         allowNull: true,
         type: DataTypes.DATE
-      }
+      },
+      
+      extra_data:{
+        type: DataTypes.JSONB,
+        allowNull: true
+      },
 
     }, {
       sequelize,

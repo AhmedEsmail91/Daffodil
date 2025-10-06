@@ -1,5 +1,5 @@
 const passport = require('passport');
-const {User,ProviderAccount} = require('../../../database/models'); // adjust path
+const {User,ProviderAccount} = require('../database/models'); // adjust path
 
 
 // Serialize user to session
@@ -24,7 +24,7 @@ passport.deserializeUser(async (id, done) => {
 
 // Load strategies
 // require('./strategies/google/meta.strategy')(passport);
-require('./strategies/google/google.strategy')(passport);
+require('./../src/modules/Auth/passport/strategies/google.strategy')(passport);
 
 
 module.exports = passport;
