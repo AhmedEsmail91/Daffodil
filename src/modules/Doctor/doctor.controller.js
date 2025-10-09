@@ -61,6 +61,21 @@ const changeUserToDoctor=catchError(async (req, res, next) => {
     // }
     res.status(201).json({ status: 'success', data: { doctor } });
 })
+const toggleDoctorApproval=catchError(async (req,res,next)=>{
+    const doctor_id = req.params.id;
+    const {approved} = req.body;
+    let doctor = await Doctor.findByPk(doctor_id);
+    if (!doctor) {
+        return next(new AppError('Doctor not found', 404));
+    }
+    if (doctor.name_en && doctor.name_ar && doctor.specialty_id && doctor.licenseNumber && doctor.phoneNumber && doctor.bio_en && doctor.bio_ar) {
+        // All required fields are present, proceed to update the approval status
+        doctor = await doctor.update({approved});
+        res.status(200).json({ status: 'success', data: { doctor } });
+    } else {
+        return next(new AppError('Add Doctor Data First', 400));
+    }
+});
 const getAllDoctors = catchError(async (req, res, next) => {
     let schedules_state= req.query.schedules_state=='active'?true : false;
     const approved= req.query.approved||true;
@@ -85,25 +100,22 @@ const getAllDoctors = catchError(async (req, res, next) => {
             }]
         },
     ]
-    const doctors_paginated = new ApiFeatures(Doctor, req.query,dQuery).pagination().search(['name_en'])
+    const doctors_paginated = new ApiFeatures(Doctor, req.query,dQuery).pagination().search(['name_en','name_ar'],{ User: ['username', 'contact'] })
     const results = await doctors_paginated.execute();
-    (results.meta.totalResults>0) ? res.status(200).json({ status: 'success', data: { doctors: results } }) : next(new AppError('No doctors found', 404));
+    res.status(200).json({ status: 'success', data: { doctors: results||[] } });
 });
-const getDoctorsShort=catchError(async (req,res,next)=>{
-    const approved= req.query.approved||true;
-    const doctors=await Doctor.findAll({
-        where:{approved},
-        attributes:['id','name_en','name_ar'],
-        include:[
-            {model:User,as:'user',attributes:['id','email']},
-            {model:Specialty,as:'specialty',attributes:['id','name_en','name_ar']}
+const getDoctorsShort=catchError(async (req, res) => {
+    const approved = req.query.approved || true;
+    const doctors = await Doctor.findAll({
+        where: { approved },
+        attributes: ['id', 'name_en', 'name_ar'],
+        include: [
+            { model: User, as: 'user', attributes: ['id', 'email'] },
+            { model: Specialty, as: 'specialty', attributes: ['id', 'name_en', 'name_ar'] }
         ]
     });
-    if(doctors.length==0){
-        return next(new AppError('No doctors found', 404));
-    }
-    res.status(200).json({status:'success',data:{doctors}});
-})
+    res.status(200).json({ status: 'success', data: { doctors: doctors || [] } });
+});
 const updateDoctor=catchError(async (req,res,next)=>{
     const doctor_id = req.params.id;
     const {
@@ -144,4 +156,4 @@ const updateDoctor=catchError(async (req,res,next)=>{
     doctor = await doctor.update(updatedFields);
     res.status(200).json({ status: 'success', data: { doctor } });
 })
-module.exports = { changeUserToDoctor, getAllDoctors,getDoctorsShort, updateDoctor }
+module.exports = { changeUserToDoctor, getAllDoctors,getDoctorsShort, updateDoctor ,toggleDoctorApproval};

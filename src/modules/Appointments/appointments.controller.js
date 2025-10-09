@@ -234,7 +234,9 @@ const createAppointment = catchError(async (req, res,next) => {
     type,
     notes,
     appointment_mode,
-    scope_id
+    scope_id,
+    contact,
+    countryCode
   } = req.body;
 
   const appointmentData = {
@@ -298,6 +300,11 @@ const createAppointment = catchError(async (req, res,next) => {
 
   if (!createdAppointment) {
     return next(new AppError('Failed to create appointment', 500));
+  }
+  if(contact){
+    const user=await User.findByPk(patient_id);
+    user.contact=countryCode+':'+contact;
+    await user.save();
   }
   res.status(201).json({
     message: 'Appointment created successfully. and your are waiting for approval',

@@ -2,7 +2,7 @@
 const { v4: uuidv4 } = require("uuid");
 const Joi = require("joi");
 const errorEvent = require("../../utils/errors/EventError.js");
-const {Chat,Message} = require("../../../../database/models");
+const {Chat,Message,User} = require("../../../../database/models");
 // Import Sequelize models via your centralized loader
 /**
  * Join Admins room on connection (call this from your main socket connection handler)
@@ -35,12 +35,12 @@ async function startChat(socket, data, adminIo) {
     
     chat = await Chat.findOne({
       where: { patient_id: patientId, status: "open" },
-      include:[{model:User,as:'patient',attributes:['id','name','email','phone']}]
+      include:[{model:User,as:'patient',attributes:['id','username','email','contact']}]
     });
     if (!chat) {
       chat = await Chat.create({
         patient_id: patientId
-      },{include:[{model:User,as:'patient',attributes:['id','name','email','phone']}]});
+      },{include:[{model:User,as:'patient',attributes:['id','username','email','contact']}]});
     }
     
 

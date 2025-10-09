@@ -88,24 +88,55 @@ class ApiFeatures {
      * @param {Array<string>} columns - The columns to search in.
      * @returns {ApiFeatures} - The current instance for method chaining.
      */
-    search(columns = ['name']) {
-        if (this.searchQuery.keyword) {
-            const keyword = this.searchQuery.keyword;
-            this.queryOptions.where = {
-                ...(this.queryOptions.where || {}),
-                [Op.or]: columns.map(col => ({
-                    [col]: { [Op.iLike]: `%${keyword}%` }
-                }))
-            };
-        }
-        return this;
+    /**
+ * Adds search capabilities to the query.
+ * Supports both model columns and included relation columns.
+ * Example: search(['name_en','name_ar'], { user: ['username','email'] })
+ * @param {Array<string>} columns - The columns of the main model to search in.
+ * @param {Object} relationColumns - { alias: ['col1','col2'] } for included relations.
+ * @returns {ApiFeatures} - The current instance for method chaining.
+ */
+search(columns = ['name'], relationColumns = {}) {
+    if (!this.searchQuery.keyword) return this;
+
+    const keyword = this.searchQuery.keyword;
+    const orConditions = [];
+
+    // ✅ main model columns
+    for (const col of columns) {
+        orConditions.push({ [col]: { [Op.iLike]: `%${keyword}%` } });
     }
+
+    // ✅ relation columns if includes exist
+    if (this.queryOptions.include && Array.isArray(this.queryOptions.include)) {
+        for (const include of this.queryOptions.include) {
+            const alias = include.as || include.model?.name;
+            const relCols = relationColumns[alias];
+            if (alias && relCols && relCols.length) {
+                for (const col of relCols) {
+                    // Must match alias defined in the include
+                    orConditions.push({
+                        [`$${alias}.${col}$`]: { [Op.iLike]: `%${keyword}%` }
+                    });
+                }
+            }
+        }
+    }
+
+    this.queryOptions.where = {
+        ...(this.queryOptions.where || {}),
+        [Op.or]: orConditions
+    };
+
+    return this;
+}
+
     /**
      * Executes the built query and returns the result.
      * @returns {Promise<Object>} - The result of the query execution.
      */
     async execute() {
-        const result = await this.model.findAndCountAll(this.queryOptions);
+        const result = await this.model.findAndCountAll({distinct:true, ...this.queryOptions});
         return {
             data:result.rows,
             meta: {

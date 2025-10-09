@@ -31,6 +31,11 @@ module.exports = (sequelize, DataTypes) => {
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true,
       },
+      patientAliasName: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: "Optional alias name for patient to make admin search without exposing real identity",
+      },
       patient_id: {
         type: DataTypes.UUID,
         allowNull: true,

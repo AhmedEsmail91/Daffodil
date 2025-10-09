@@ -13,6 +13,11 @@ module.exports = {
         allowNull: true,
         comment: "If authenticated patient, link to Patient table",
       },
+      patientAliasName: {
+        type: Sequelize.STRING,
+        allowNull: true,
+        comment: "Optional alias name for patient to make admin search without exposing real identity",
+      },
       status: {
         type: Sequelize.ENUM("open", "closed"),
         defaultValue: "open",
