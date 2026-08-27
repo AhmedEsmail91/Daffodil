@@ -1,0 +1,1065 @@
+{
+  "info": {
+    "name": "Daffodil Clinic API",
+    "description": "Full API surface for the Daffodil Clinic backend (Express + Sequelize/Postgres + Firestore chat).\n\n**Auth**: login sets an httpOnly `token` JWT cookie. Postman's cookie jar carries it automatically for subsequent requests to the same host, so you normally don't need to do anything else after running \"Login\". As a fallback, `Auth.Authenticate` also accepts `Authorization: Bearer <jwt>` or a raw `token` header — the Login request's test script also copies the cookie value into the `{{token}}` collection variable and the collection's default auth is Bearer `{{token}}`, so either mechanism works.\n\n**Roles**: `admin`, `doctor`, `user` (this is the patient role). Most admin routes require specific permissions on top of being authenticated (see each folder's description) — note the permission-seeder currently grants every permission to every role, so in practice any authenticated user can call any endpoint in this instance, but the intended checks are documented per-request anyway.\n\n**Known issues found while mapping routes** (documented per-request below too):\n- `POST /api/auth/refresh` references an undefined `createAccessToken` function and no login flow ever sets a `refreshToken` cookie — this endpoint is broken end-to-end.\n- `GET /api/doctor/appointments` and `PATCH /api/doctor/appointments/:id` reuse the *admin* controllers, so they are not scoped to the calling doctor (all appointments are visible/editable, not just the doctor's own).\n- `GET/PUT /api/patient/schedules` similarly reuse the admin-wide schedule listing, not patient-filtered.\n",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "event": [],
+  "variable": [
+    { "key": "serverUrl", "value": "http://localhost:3000", "type": "string" },
+    { "key": "baseUrl", "value": "{{serverUrl}}/api", "type": "string" },
+    { "key": "token", "value": "", "type": "string" },
+    { "key": "adminEmail", "value": "admin@gmail.com", "type": "string" },
+    { "key": "adminPassword", "value": "Qw123456789@#$", "type": "string" },
+    { "key": "specialtyId", "value": "", "type": "string" },
+    { "key": "scopeId", "value": "", "type": "string" },
+    { "key": "scheduleId", "value": "", "type": "string" },
+    { "key": "appointmentId", "value": "", "type": "string" },
+    { "key": "doctorId", "value": "", "type": "string" },
+    { "key": "doctorUserId", "value": "", "type": "string" },
+    { "key": "roleId", "value": "", "type": "string" },
+    { "key": "permissionId", "value": "", "type": "string" },
+    { "key": "chatId", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "description": "Local (email/password) auth plus Google OAuth entry points. Mounted directly at /api/auth, not under admin/doctor/patient.",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "auth": { "type": "noauth" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Sets an httpOnly `token` cookie (1h) on success and returns the logged-in user. `password` must match ^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[#?!@$%^&*-]).{8,}$ if you swap in a different account. Rejects doctor accounts that aren't yet approved."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const cookie = pm.cookies.get('token');",
+                  "  if (cookie) { pm.collectionVariables.set('token', cookie); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Me",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
+            },
+            "description": "Returns {id,name,email,role:{id,name},lang} for the current session. Requires auth."
+          }
+        },
+        {
+          "name": "Get Firebase Token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/firebase-token",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "firebase-token"]
+            },
+            "description": "Mints a Firebase custom token for the current user so a client can sign into Firebase for chat (signInWithCustomToken). Requires auth."
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current\": \"{{adminPassword}}\",\n  \"new\": \"NewPass123!\",\n  \"reNew\": \"NewPass123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/changePassword",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "changePassword"]
+            },
+            "description": "current/new/reNew must all satisfy the password pattern (min 8 chars, upper+lower+digit+special). reNew must equal new. Requires auth. Re-issues the token cookie (15 min)."
+          }
+        },
+        {
+          "name": "Refresh Token (broken)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": { "type": "noauth" },
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "refresh"]
+            },
+            "description": "KNOWN BUG: the controller calls an undefined `createAccessToken` function, and no route ever sets the `refreshToken` cookie this endpoint reads. Calling this will throw a server error. Kept here for completeness/documentation."
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            },
+            "description": "Clears token/refreshToken/role cookies."
+          }
+        },
+        {
+          "name": "Google OAuth - Doctor (browser only)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": { "type": "noauth" },
+            "url": {
+              "raw": "{{baseUrl}}/auth/google/doctor/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "google", "doctor", ""]
+            },
+            "description": "Redirects to Google's consent screen (requests Calendar scope too). Not a JSON API call — open this URL in a browser, don't 'Send' it in Postman."
+          }
+        },
+        {
+          "name": "Google OAuth - Patient (browser only)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": { "type": "noauth" },
+            "url": {
+              "raw": "{{baseUrl}}/auth/google/patient/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "google", "patient", ""]
+            },
+            "description": "Redirects to Google's consent screen (no Calendar scope). Not a JSON API call — open this URL in a browser, don't 'Send' it in Postman."
+          }
+        },
+        {
+          "name": "Google OAuth Callback (browser only)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": { "type": "noauth" },
+            "url": {
+              "raw": "{{baseUrl}}/auth/google/callback",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "google", "callback"]
+            },
+            "description": "Handled automatically by Google's redirect after consent; sets the token cookie and 302s to the frontend. Not directly callable from Postman."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "description": "All routes under /api/admin require auth + the permission set (doctor-create, schedule-read, schedule-update, schedule-delete) applied at the router level, plus any further per-route permission listed below. Note: the current seeder grants every permission to every role, so in this instance any authenticated user can technically call these.",
+      "item": [
+        {
+          "name": "Specialties",
+          "item": [
+            {
+              "name": "Get All Specialties",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/specialties?page=1&limit=10&sort=-createdAt&keyword=",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "specialties"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "10" },
+                    { "key": "sort", "value": "-createdAt" },
+                    { "key": "keyword", "value": "", "disabled": true }
+                  ]
+                },
+                "description": "Requires permission: specialty-read."
+              }
+            },
+            {
+              "name": "Create Specialty",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code < 300) {",
+                      "  const body = pm.response.json();",
+                      "  const id = body?.specialty?.id;",
+                      "  if (id) pm.collectionVariables.set('specialtyId', id);",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name_en\": \"Hair Transplant\",\n  \"name_ar\": \"زراعة الشعر\",\n  \"description_en\": \"Hair restoration and transplantation procedures.\",\n  \"description_ar\": \"إجراءات ترميم وزراعة الشعر.\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/admin/specialties",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "specialties"]
+                },
+                "description": "Requires permissions: specialty-create, specialty-read, specialty-update, specialty-delete (all). name_en/name_ar: 2-100 chars. description_en/description_ar: 10-500 chars. 400 if name already exists."
+              }
+            },
+            {
+              "name": "Get Specialty By Id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/specialties/{{specialtyId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "specialties", "{{specialtyId}}"]
+                },
+                "description": "Requires permission: specialty-read."
+              }
+            },
+            {
+              "name": "Update Specialty",
+              "request": {
+                "method": "PUT",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description_en\": \"Updated description for hair transplant specialty.\",\n  \"description_ar\": \"وصف محدث لتخصص زراعة الشعر.\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/admin/specialties/{{specialtyId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "specialties", "{{specialtyId}}"]
+                },
+                "description": "Requires all 4 specialty permissions. Only description_en/description_ar are updatable; both required (10-500 chars). :id comes from the URL, no need to repeat it in the body."
+              }
+            },
+            {
+              "name": "Delete Specialty",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/specialties/{{specialtyId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "specialties", "{{specialtyId}}"]
+                },
+                "description": "Requires all 4 specialty permissions. 400 if any doctors are still assigned to this specialty."
+              }
+            }
+          ]
+        },
+        {
+          "name": "Scopes",
+          "item": [
+            {
+              "name": "Create Scope",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code < 300) {",
+                      "  const body = pm.response.json();",
+                      "  const id = body?.scope?.id ?? body?.data?.id;",
+                      "  if (id) pm.collectionVariables.set('scopeId', id);",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name_en\": \"Front Hairline\",\n  \"name_ar\": \"خط الشعر الأمامي\",\n  \"description_en\": \"Frontal hairline area\",\n  \"description_ar\": \"منطقة خط الشعر الأمامي\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/admin/scopes",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "scopes"]
+                },
+                "description": "name_en/name_ar: 3-50 chars, required. description_en/description_ar: optional, up to 255 chars. A 'scope' is what an appointment is about (e.g. a hair-transplant treatment area)."
+              }
+            },
+            {
+              "name": "Get All Scopes",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/scopes",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "scopes"]
+                }
+              }
+            },
+            {
+              "name": "Delete Scope",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/scopes/{{scopeId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "scopes", "{{scopeId}}"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Patients",
+          "item": [
+            {
+              "name": "Get All Patients",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/patients?page=1&limit=10",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "patients"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "10" },
+                    { "key": "sort", "value": "", "disabled": true },
+                    { "key": "keyword", "value": "", "disabled": true }
+                  ]
+                },
+                "description": "Lists Users with role='user', includes their appointments + schedules."
+              }
+            }
+          ]
+        },
+        {
+          "name": "Appointments",
+          "item": [
+            {
+              "name": "Get All Appointments",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/appointments?page=1&limit=10",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "appointments"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "10" },
+                    { "key": "sort", "value": "", "disabled": true },
+                    { "key": "keyword", "value": "", "disabled": true }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Appointment By Id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/appointments/{{appointmentId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "appointments", "{{appointmentId}}"]
+                }
+              }
+            },
+            {
+              "name": "Update Appointment Status",
+              "request": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"scheduled\",\n  \"appointment_mode\": \"online\",\n  \"type\": \"consultation\",\n  \"notes\": \"Confirmed with patient by phone.\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/admin/appointments/{{appointmentId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "appointments", "{{appointmentId}}"]
+                },
+                "description": "status is required (pending|scheduled|canceled|completed). appointment_mode (online|in-person), type (consultation|follow-up|emergency), notes (<=1000 chars) are optional. Only appointments currently 'pending' can be updated (unless setting status=canceled). Non-cancel updates also create a Google Calendar event + OnlineMeeting record."
+              }
+            }
+          ]
+        },
+        {
+          "name": "Schedules",
+          "item": [
+            {
+              "name": "Get All Schedules",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/schedules/?status=active&page=1&limit=10",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "schedules", ""],
+                  "query": [
+                    { "key": "status", "value": "active" },
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "10" }
+                  ]
+                },
+                "description": "status: active|inactive|all (default active)."
+              }
+            },
+            {
+              "name": "Get Schedule By Id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/schedules/{{scheduleId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "schedules", "{{scheduleId}}"]
+                }
+              }
+            },
+            {
+              "name": "Set Schedule",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code < 300) {",
+                      "  const body = pm.response.json();",
+                      "  const id = body?.schedule?.id ?? body?.data?.id;",
+                      "  if (id) pm.collectionVariables.set('scheduleId', id);",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"doctor_id\": \"{{doctorId}}\",\n  \"from\": \"2026-09-01T09:00:00.000Z\",\n  \"to\": \"2026-09-01T17:00:00.000Z\",\n  \"online_cases_number\": 5,\n  \"status\": \"active\",\n  \"max_appointments\": 10\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/admin/schedules/set",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "schedules", "set"]
+                },
+                "description": "doctor_id, from (> now), to (> from), online_cases_number (>=0) required. status (active|inactive), max_appointments (>=0) optional."
+              }
+            },
+            {
+              "name": "Set Multi Schedule",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"doctor_id\": \"{{doctorId}}\",\n  \"schedules\": [\n    { \"from\": \"2026-09-02T09:00:00.000Z\", \"to\": \"2026-09-02T17:00:00.000Z\" },\n    { \"from\": \"2026-09-03T09:00:00.000Z\", \"to\": \"2026-09-03T17:00:00.000Z\" }\n  ],\n  \"max_appointments_number\": 10,\n  \"online_cases_number\": 5\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/admin/schedules/set/multi",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "schedules", "set", "multi"]
+                },
+                "description": "doctor_id required. schedules: array (min 1) of {from > now, to > from}, required. online_cases_number required. max_appointments_number optional."
+              }
+            },
+            {
+              "name": "Toggle Schedule Status",
+              "request": {
+                "method": "PATCH",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/schedules/toggle-status/{{scheduleId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "schedules", "toggle-status", "{{scheduleId}}"]
+                },
+                "description": "Toggles active<->inactive. 400 if the schedule has pending/scheduled appointments."
+              }
+            },
+            {
+              "name": "Forced Update Schedule",
+              "request": {
+                "method": "PUT",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"from\": \"2026-09-01T10:00:00.000Z\",\n  \"to\": \"2026-09-01T18:00:00.000Z\",\n  \"online_cases_number\": 6\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/admin/schedules/forced-update/{{scheduleId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "schedules", "forced-update", "{{scheduleId}}"]
+                },
+                "description": "No Joi validation on this route (body read directly by the controller). Sends 'apology' emails to patients whose appointments are affected by the change."
+              }
+            },
+            {
+              "name": "Get Schedule Appointments",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/schedules/{{scheduleId}}/appointments?page=1&limit=10",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "schedules", "{{scheduleId}}", "appointments"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "10" }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Chats",
+          "item": [
+            {
+              "name": "Get All Chats",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/chats?limit=50&status=open",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "chats"],
+                  "query": [
+                    { "key": "limit", "value": "50" },
+                    { "key": "status", "value": "open", "disabled": true }
+                  ]
+                },
+                "description": "Backed by Firestore, not Postgres. status: open|closed (optional filter). limit max 100."
+              }
+            },
+            {
+              "name": "Get Chat By Id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/chats/{{chatId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "chats", "{{chatId}}"]
+                },
+                "description": "{{chatId}} is a Firestore document id (not a UUID). Returns the chat plus its messages subcollection."
+              }
+            },
+            {
+              "name": "Close Chat",
+              "request": {
+                "method": "PATCH",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/chats/{{chatId}}/close",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "chats", "{{chatId}}", "close"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Doctors",
+          "item": [
+            {
+              "name": "Get All Doctors",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/doctors?approved=true&schedules_state=active",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "doctors"],
+                  "query": [
+                    { "key": "approved", "value": "true" },
+                    { "key": "schedules_state", "value": "active" }
+                  ]
+                },
+                "description": "Requires: role-create/read/update/delete, user-create/read/update/delete, doctor-create/read/update/delete (all). approved defaults true if omitted."
+              }
+            },
+            {
+              "name": "Get Doctors Short",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/doctors/short?approved=true",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "doctors", "short"],
+                  "query": [{ "key": "approved", "value": "true" }]
+                }
+              }
+            },
+            {
+              "name": "Toggle Doctor Approval",
+              "request": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"approved\": true\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/admin/doctors/{{doctorId}}/toggle-approval",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "doctors", "{{doctorId}}", "toggle-approval"]
+                },
+                "description": "approved (boolean) required. Requires the doctor's profile to already be fully filled in (name/specialty/license/phone/bio), else 400."
+              }
+            },
+            {
+              "name": "Change User To Doctor",
+              "request": {
+                "method": "PUT",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name_en\": \"Dr. John Smith\",\n  \"name_ar\": \"د. جون سميث\",\n  \"specialty_id\": \"{{specialtyId}}\",\n  \"licenseNumber\": \"LIC-123456\",\n  \"phoneNumber\": \"+201234567890\",\n  \"bio_en\": \"Board-certified hair transplant surgeon with 10 years of experience.\",\n  \"bio_ar\": \"جراح زراعة شعر معتمد بخبرة 10 سنوات.\",\n  \"approved\": false\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/admin/doctors/{{doctorUserId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "doctors", "{{doctorUserId}}"]
+                },
+                "description": "{{doctorUserId}} is the Doctor row's primary key (must currently be approved:false). No Joi validation on this route; body read directly by the controller. Fills out/promotes a Doctor profile."
+              }
+            },
+            {
+              "name": "Update Doctor",
+              "request": {
+                "method": "PUT",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"bio_en\": \"Updated bio text.\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/admin/doctors/{{doctorId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "doctors", "{{doctorId}}"]
+                },
+                "description": "All fields optional (name_en, name_ar, specialty_id, licenseNumber, phoneNumber, bio_en, bio_ar, approved) but at least one is required."
+              }
+            }
+          ]
+        },
+        {
+          "name": "Roles & Permissions",
+          "item": [
+            {
+              "name": "Get All Permissions",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/role-permissions/permissions?page=1&limit=20",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "role-permissions", "permissions"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "20" }
+                  ]
+                },
+                "description": "Requires (OR): role-create, role-read, role-update, or role-delete."
+              }
+            },
+            {
+              "name": "Get Permissions By Role",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/role-permissions/role/{{roleId}}/permissions",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "role-permissions", "role", "{{roleId}}", "permissions"]
+                }
+              }
+            },
+            {
+              "name": "Get All Roles",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/role-permissions/role?page=1&limit=20",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "role-permissions", "role"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "20" }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create Role",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code < 300) {",
+                      "  const body = pm.response.json();",
+                      "  const id = body?.role?.id ?? body?.data?.id;",
+                      "  if (id) pm.collectionVariables.set('roleId', id);",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name_en\": \"Receptionist\",\n  \"name_ar\": \"موظف استقبال\",\n  \"guard_name\": \"api\",\n  \"permissions\": [\"{{permissionId}}\"]\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/admin/role-permissions/role",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "role-permissions", "role"]
+                },
+                "description": "name_en, name_ar required. guard_name: api|app (optional). permissions: array of unique permission UUIDs, required (fetch real ids from 'Get All Permissions' first and set {{permissionId}})."
+              }
+            },
+            {
+              "name": "Get Role By Id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/role-permissions/role/{{roleId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "role-permissions", "role", "{{roleId}}"]
+                }
+              }
+            },
+            {
+              "name": "Update Role",
+              "request": {
+                "method": "PUT",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name_en\": \"Receptionist\",\n  \"name_ar\": \"موظف استقبال\",\n  \"guard_name\": \"api\",\n  \"permissions\": [\"{{permissionId}}\"]\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/admin/role-permissions/role/{{roleId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "role-permissions", "role", "{{roleId}}"]
+                },
+                "description": "No Joi validation on this route; body read directly by the controller."
+              }
+            },
+            {
+              "name": "Delete Role",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/role-permissions/role/{{roleId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "role-permissions", "role", "{{roleId}}"]
+                },
+                "description": "400 if the role still has users assigned to it — use 'Force Delete Role' to override."
+              }
+            },
+            {
+              "name": "Force Delete Role",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/role-permissions/role/{{roleId}}/force-delete",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "role-permissions", "role", "{{roleId}}", "force-delete"]
+                },
+                "description": "Deletes the role and sets any associated users' role_id=null, status='inactive'."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Doctor",
+      "description": "Mounted at /api/doctor. Requires auth only at the router level (no blanket permission check).",
+      "item": [
+        {
+          "name": "Get My Schedules",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/doctor/schedules/?status=active&page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["doctor", "schedules", ""],
+              "query": [
+                { "key": "status", "value": "active" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            },
+            "description": "Requires permission: schedule-read. Resolves the calling doctor via the JWT's user_id."
+          }
+        },
+        {
+          "name": "Get Schedule By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/doctor/schedules/{{scheduleId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["doctor", "schedules", "{{scheduleId}}"]
+            },
+            "description": "Requires permission: schedule-read."
+          }
+        },
+        {
+          "name": "Get All Appointments (not scoped - see note)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/doctor/appointments?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["doctor", "appointments"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            },
+            "description": "NOTE: this route reuses the admin-wide getAllAppointments controller, so it currently returns ALL appointments system-wide, not just this doctor's — likely a bug in the source project, documented as-is."
+          }
+        },
+        {
+          "name": "Get Appointment By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/doctor/appointments/{{appointmentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["doctor", "appointments", "{{appointmentId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Appointment Status",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"completed\",\n  \"notes\": \"Procedure completed successfully.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/doctor/appointments/{{appointmentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["doctor", "appointments", "{{appointmentId}}"]
+            },
+            "description": "status required (pending|scheduled|canceled|completed). appointment_mode/type/notes optional. Same underlying admin controller/validation as the admin appointment update."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Patient",
+      "description": "Mounted at /api/patient. Requires auth + permissions (schedule-read, appointment-read, appointment-create) applied at the router level.",
+      "item": [
+        {
+          "name": "Get All Schedules",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/patient/schedules/?status=active",
+              "host": ["{{baseUrl}}"],
+              "path": ["patient", "schedules", ""],
+              "query": [{ "key": "status", "value": "active" }]
+            },
+            "description": "NOTE: reuses the admin-wide schedule listing controller, not patient-filtered."
+          }
+        },
+        {
+          "name": "Get Schedule By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/patient/schedules/{{scheduleId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["patient", "schedules", "{{scheduleId}}"]
+            }
+          }
+        },
+        {
+          "name": "Create Appointment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "  const body = pm.response.json();",
+                  "  const id = body?.appointment?.id ?? body?.data?.id;",
+                  "  if (id) pm.collectionVariables.set('appointmentId', id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "schedule_id", "value": "{{scheduleId}}", "type": "text" },
+                { "key": "contact", "value": "1234567890", "type": "text" },
+                { "key": "countryCode", "value": "EG", "type": "text" },
+                { "key": "appointment_mode", "value": "online", "type": "text" },
+                { "key": "type", "value": "consultation", "type": "text" },
+                { "key": "notes", "value": "First-time consultation request.", "type": "text" },
+                { "key": "scope_id", "value": "{{scopeId}}", "type": "text" },
+                { "key": "images", "type": "file", "src": [], "disabled": true }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/patient/appointments",
+              "host": ["{{baseUrl}}"],
+              "path": ["patient", "appointments"]
+            },
+            "description": "multipart/form-data. schedule_id, contact, countryCode (2 chars), appointment_mode (online|in-person), type (consultation|follow-up|emergency), scope_id required. notes optional (<=1000 chars). images: up to 10 files, image/jpeg|png|jpg, <=10MB each, optional (field is disabled by default here — enable it and pick files to test uploads). patient_id comes from the JWT. Fails if the schedule is full/expired or the patient already has a pending/scheduled appointment there."
+          }
+        },
+        {
+          "name": "Get My Appointments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/patient/appointments?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["patient", "appointments"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get All Scopes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/patient/scopes",
+              "host": ["{{baseUrl}}"],
+              "path": ["patient", "scopes"]
+            }
+          }
+        },
+        {
+          "name": "Start/Resume Chat",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "  const body = pm.response.json();",
+                  "  const id = body?.chat?.id;",
+                  "  if (id) pm.collectionVariables.set('chatId', id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/patient/chats",
+              "host": ["{{baseUrl}}"],
+              "path": ["patient", "chats"]
+            },
+            "description": "No body required. Creates or resumes the caller's open Firestore chat using the JWT identity."
+          }
+        },
+        {
+          "name": "Get My Chats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/patient/chats",
+              "host": ["{{baseUrl}}"],
+              "path": ["patient", "chats"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health Check",
+      "item": [
+        {
+          "name": "GET /",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": { "type": "noauth" },
+            "url": {
+              "raw": "{{serverUrl}}/",
+              "host": ["{{serverUrl}}"],
+              "path": [""]
+            },
+            "description": "Returns plain text 'App is running!'. Note: this is at the server root, not under /api."
+          }
+        }
+      ]
+    }
+  ]
+}
