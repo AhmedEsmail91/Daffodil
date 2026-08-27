@@ -1,0 +1,43 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isStaff() {
+      return isSignedIn() &&
+        (request.auth.token.role == 'admin' || request.auth.token.role == 'doctor');
+    }
+
+    function isChatOwner(chatData) {
+      return isSignedIn() && chatData.patient_id == request.auth.uid;
+    }
+
+    match /chats/{chatId} {
+      allow read: if isStaff() || isChatOwner(resource.data);
+      // Chat lifecycle (create/close) is handled by the backend via the
+      // Firebase Admin SDK, which bypasses these rules entirely - clients
+      // never write directly to the chat document itself.
+      allow write: if false;
+
+      match /messages/{messageId} {
+        allow read: if isStaff() || isChatOwner(get(/databases/$(database)/documents/chats/$(chatId)).data);
+
+        allow create: if request.resource.data.sender_id == request.auth.uid
+          && request.resource.data.content is string
+          && request.resource.data.content.size() > 0
+          && request.resource.data.content.size() <= 5000
+          && (
+            (isStaff() && request.resource.data.sender_type == 'admin') ||
+            (isChatOwner(get(/databases/$(database)/documents/chats/$(chatId)).data) && request.resource.data.sender_type == 'patient')
+          );
+
+        // Messages are immutable once sent.
+        allow update, delete: if false;
+      }
+    }
+  }
+}

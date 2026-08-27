@@ -1,6 +1,7 @@
 const schedulesRoute=require('./schedules.route.js');
 const appointmentRoute=require('./appointment.route.js');
 const scopeRoute=require('./scope.route.js');
+const chatRoute=require('./chat.route.js');
 const {Auth}=require('./../../middlewares/auth.js');
 
 const {Router}=require('express');
@@ -12,4 +13,5 @@ router.use(Auth.allowedToAnd(...['schedule-read','appointment-read','appointment
 router.use(`/${prefix}`,schedulesRoute);
 router.use(`/${prefix}`,scopeRoute);
 router.use(`/${prefix}`,appointmentRoute);
+router.use(`/${prefix}`,chatRoute);
 module.exports=router;

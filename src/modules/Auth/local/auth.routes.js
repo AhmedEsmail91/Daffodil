@@ -13,6 +13,7 @@ const authRouter = express.Router();
 // authRouter.post('/verifyOTP', validation(authVal.OTPScehma), authController.verifyOTP);
 
 authRouter.get('/me', authMiddleware.Auth.Authenticate, authController.verifyToken);
+authRouter.get('/firebase-token', authMiddleware.Auth.Authenticate, authController.firebaseToken);
 authRouter.post('/refresh', authController.refreshToken);
 authRouter.post('/login', validation(authVal.signinSchemaVal), authController.signin);
 authRouter.post('/logout', authController.logout);

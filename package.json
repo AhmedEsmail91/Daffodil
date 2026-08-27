@@ -33,6 +33,7 @@
     "dotenv": "^17.2.0",
     "express": "^5.1.0",
     "express-session": "^1.18.2",
+    "firebase-admin": "^14.3.0",
     "googleapis": "^155.0.1",
     "helmet": "^8.1.0",
     "joi": "^17.13.3",
@@ -49,7 +50,6 @@
     "pg": "^8.16.3",
     "redis": "^5.6.1",
     "sequelize": "^6.37.7",
-    "socket.io": "^4.8.1",
     "uuid": "^11.1.0",
     "winston": "^3.17.0",
     "winston-daily-rotate-file": "^5.0.0"
