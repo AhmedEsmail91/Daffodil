@@ -1,0 +1,290 @@
+DAFFODIL CLINIC — FULL LIFECYCLE EXAMPLE DATA
+==============================================
+
+This walks through one complete, self-consistent scenario across the whole
+app: seeded admin -> specialty/scope setup -> a doctor gets onboarded and
+approved -> a schedule is opened -> a patient books an appointment -> the
+appointment moves through its statuses -> a support chat happens over
+Firestore. Every ID below is reused consistently across steps so you can
+follow the same records end to end. Swap the placeholder UUIDs for whatever
+your database actually generates when you run these for real (Postman's
+collection already auto-captures most of them into variables — this file is
+the "what does a full run actually look like" companion to that).
+
+Pair this with postman/Daffodil-Clinic-API.postman_collection.json.
+
+
+STEP 0 — Seeded accounts (already in the DB via seeders)
+----------------------------------------------------------
+Admin (Role: admin):
+  email:    admin@gmail.com
+  password: Qw123456789@#$
+  id:       a0000000-0000-4000-8000-000000000001
+
+Roles (seeded): admin, doctor, user (the "user" role = patient)
+
+
+STEP 1 — Admin logs in
+------------------------
+POST /api/auth/login
+{
+  "email": "admin@gmail.com",
+  "password": "Qw123456789@#$"
+}
+
+Response sets an httpOnly `token` cookie (1h) and returns:
+{
+  "message": "Login successful",
+  "user": {
+    "user_id": "a0000000-0000-4000-8000-000000000001",
+    "name": "admin",
+    "email": "admin@gmail.com",
+    "role": { "id": "<admin-role-id>", "name": "admin" },
+    "contact": null,
+    "lang": "en"
+  }
+}
+
+
+STEP 2 — Admin creates a Specialty
+-------------------------------------
+POST /api/admin/specialties
+{
+  "name_en": "Hair Transplant",
+  "name_ar": "زراعة الشعر",
+  "description_en": "Hair restoration and transplantation procedures.",
+  "description_ar": "إجراءات ترميم وزراعة الشعر."
+}
+
+-> specialtyId = b0000000-0000-4000-8000-000000000002
+
+
+STEP 3 — Admin creates Scopes under that specialty theme
+------------------------------------------------------------
+(Scopes are what an appointment is "about" — the treatment area.)
+
+POST /api/admin/scopes
+{
+  "name_en": "Front Hairline",
+  "name_ar": "خط الشعر الأمامي",
+  "description_en": "Frontal hairline restoration",
+  "description_ar": "ترميم خط الشعر الأمامي"
+}
+-> scopeId = c0000000-0000-4000-8000-000000000003
+
+POST /api/admin/scopes
+{
+  "name_en": "Crown Area",
+  "name_ar": "منطقة التاج",
+  "description_en": "Crown/vertex area restoration",
+  "description_ar": "ترميم منطقة التاج"
+}
+-> scopeId2 = c0000000-0000-4000-8000-000000000004
+
+
+STEP 4 — A doctor account is created
+---------------------------------------
+Doctors sign in via Google OAuth (GET /api/auth/google/doctor/, state=doctor).
+That flow creates a plain User row (role: doctor) and an empty Doctor
+profile row tied to it (approved: false). Example resulting records:
+
+User (role: doctor):
+  id:       d0000000-0000-4000-8000-000000000005
+  username: "John Smith"
+  email:    "dr.john.smith@example.com"
+
+Doctor profile (created empty, needs filling in by admin):
+  id:       e0000000-0000-4000-8000-000000000006
+  user_id:  d0000000-0000-4000-8000-000000000005
+  approved: false
+
+
+STEP 5 — Admin fills out the doctor's profile
+--------------------------------------------------
+PUT /api/admin/doctors/e0000000-0000-4000-8000-000000000006
+{
+  "name_en": "Dr. John Smith",
+  "name_ar": "د. جون سميث",
+  "specialty_id": "b0000000-0000-4000-8000-000000000002",
+  "licenseNumber": "LIC-123456",
+  "phoneNumber": "+201234567890",
+  "bio_en": "Board-certified hair transplant surgeon with 10 years of experience.",
+  "bio_ar": "جراح زراعة شعر معتمد بخبرة 10 سنوات.",
+  "approved": false
+}
+
+
+STEP 6 — Admin approves the doctor
+--------------------------------------
+PATCH /api/admin/doctors/e0000000-0000-4000-8000-000000000006/toggle-approval
+{
+  "approved": true
+}
+
+(Requires the profile fields from Step 5 to already be filled in, or this
+400s.)
+
+
+STEP 7 — Admin opens a schedule for the doctor
+---------------------------------------------------
+POST /api/admin/schedules/set
+{
+  "doctor_id": "e0000000-0000-4000-8000-000000000006",
+  "from": "2026-09-01T09:00:00.000Z",
+  "to": "2026-09-01T17:00:00.000Z",
+  "online_cases_number": 5,
+  "status": "active",
+  "max_appointments": 10
+}
+
+-> scheduleId = f0000000-0000-4000-8000-000000000007
+
+(Or open several days at once with POST /api/admin/schedules/set/multi —
+see the Postman collection.)
+
+
+STEP 8 — A patient account is created
+------------------------------------------
+Patients also sign in via Google OAuth (GET /api/auth/google/patient/,
+state=user), which creates a User row with role "user".
+
+User (role: user / patient):
+  id:       10000000-0000-4000-8000-000000000008
+  username: "Sarah Ahmed"
+  email:    "sarah.ahmed@example.com"
+
+
+STEP 9 — Patient books an appointment
+-------------------------------------------
+POST /api/patient/appointments   (multipart/form-data)
+  schedule_id:       f0000000-0000-4000-8000-000000000007
+  contact:            1001234567
+  countryCode:        EG
+  appointment_mode:   online
+  type:               consultation
+  notes:               "First-time consultation, interested in front hairline restoration."
+  scope_id:            c0000000-0000-4000-8000-000000000003
+  images:               (0-10 optional image files, jpg/jpeg/png, <=10MB each)
+
+-> appointmentId = 20000000-0000-4000-8000-000000000009
+   status: "pending" (default), turn: 1 (computed slot order within the schedule)
+
+
+STEP 10 — Doctor/Admin confirms the appointment
+-----------------------------------------------------
+PATCH /api/admin/appointments/20000000-0000-4000-8000-000000000009
+(or the equivalent /api/doctor/appointments/:id — same controller)
+{
+  "status": "scheduled",
+  "appointment_mode": "online",
+  "type": "consultation",
+  "notes": "Confirmed with patient by phone."
+}
+
+On success this also creates a Google Calendar event + OnlineMeeting record
+for the appointment (since appointment_mode is "online").
+
+
+STEP 11 — Appointment is completed (or canceled)
+-------------------------------------------------------
+Happy path:
+PATCH /api/admin/appointments/20000000-0000-4000-8000-000000000009
+{
+  "status": "completed",
+  "notes": "Procedure completed successfully."
+}
+
+Alternative — cancellation (allowed from any prior status):
+PATCH /api/admin/appointments/20000000-0000-4000-8000-000000000009
+{
+  "status": "canceled"
+}
+
+
+STEP 12 — Patient signs into Firebase for chat
+-----------------------------------------------------
+GET /api/auth/firebase-token   (as the patient, cookie/bearer from their own
+                                 login — reuse the JWT auth flow above with
+                                 the patient's own credentials)
+->
+{
+  "message": "Firebase token issued",
+  "firebaseToken": "<firebase custom token JWT>"
+}
+
+Client then calls (Firebase JS SDK):
+  signInWithCustomToken(auth, firebaseToken)
+
+
+STEP 13 — Patient starts a chat
+-------------------------------------
+POST /api/patient/chats   (no body)
+->
+{
+  "message": "Chat started",
+  "chat": {
+    "id": "7pCqDBPb18yuII1zM6hj",
+    "patient_id": "10000000-0000-4000-8000-000000000008",
+    "patientName": "Sarah Ahmed",
+    "patientEmail": "sarah.ahmed@example.com",
+    "status": "open",
+    "createdAt": "<Firestore Timestamp>",
+    "updatedAt": "<Firestore Timestamp>",
+    "closedAt": null
+  }
+}
+
+-> chatId = 7pCqDBPb18yuII1zM6hj   (Firestore document id, not a UUID)
+
+
+STEP 14 — Messages (written directly to Firestore by the client SDK,
+                     NOT through the REST API)
+------------------------------------------------------------------------
+Collection: chats/7pCqDBPb18yuII1zM6hj/messages
+
+Patient's first message (client writes this doc directly):
+{
+  "sender_id": "10000000-0000-4000-8000-000000000008",
+  "sender_type": "patient",
+  "content": "Hi, I wanted to ask about recovery time after the procedure.",
+  "createdAt": "<Firestore serverTimestamp()>"
+}
+
+Admin/doctor's reply:
+{
+  "sender_id": "a0000000-0000-4000-8000-000000000001",
+  "sender_type": "admin",
+  "content": "Most patients see initial results within 2 weeks and full results in 8-12 months.",
+  "createdAt": "<Firestore serverTimestamp()>"
+}
+
+(Reads/writes here are authorized by firestore.rules: a patient can only
+touch their own chat, admin/doctor custom-claim tokens can touch any chat.)
+
+
+STEP 15 — Admin views and closes the chat
+------------------------------------------------
+GET /api/admin/chats/7pCqDBPb18yuII1zM6hj
+-> returns the chat doc plus its messages subcollection (both messages
+   from Step 14, ordered oldest first)
+
+PATCH /api/admin/chats/7pCqDBPb18yuII1zM6hj/close
+->
+{
+  "message": "Chat closed successfully",
+  "chat": { "...": "...", "status": "closed", "closedAt": "<Firestore Timestamp>" }
+}
+
+
+SUMMARY OF IDS USED IN THIS SCENARIO
+----------------------------------------
+admin user id     a0000000-0000-4000-8000-000000000001
+specialty id      b0000000-0000-4000-8000-000000000002
+scope id (front)  c0000000-0000-4000-8000-000000000003
+scope id (crown)  c0000000-0000-4000-8000-000000000004
+doctor user id    d0000000-0000-4000-8000-000000000005
+doctor profile id e0000000-0000-4000-8000-000000000006
+schedule id       f0000000-0000-4000-8000-000000000007
+patient user id   10000000-0000-4000-8000-000000000008
+appointment id    20000000-0000-4000-8000-000000000009
+chat id (Firestore, string, not uuid)   7pCqDBPb18yuII1zM6hj
