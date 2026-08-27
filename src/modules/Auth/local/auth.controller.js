@@ -5,14 +5,9 @@ const {catchError} = require('../../../../utils/errors/catchError');
 const AppError = require("../../../../utils/errors/AppError");
 
 const redisClient=require("../../../../config/redis");
+const { mintFirebaseCustomToken } = require("../../../../config/firebase");
 // SIGNIN
 const signin = catchError(async (req, res, next) => {
-    // Ensure `io` is properly defined or remove this line if unnecessary
-    if (req.app.get('io')) {
-        req.app.get('io').emit('users', {
-            message: 'User is signing in'
-        });
-    }
     // Validate email and password presence
     const { email, password } = req.body;
     // Find user by email
@@ -134,6 +129,13 @@ const verifyToken= catchError(async (req, res, next) => {
     res.status(200).json({ message: "Token is valid", user:resUser });
 });
 
+// Mints a Firebase custom token for the already-authenticated user, so the
+// client can sign into Firebase and use Firestore (chat) directly.
+const firebaseToken = catchError(async (req, res, next) => {
+    const firebaseToken = await mintFirebaseCustomToken(req.auth);
+    res.status(200).json({ message: "Firebase token issued", firebaseToken });
+});
+
 const refreshToken= catchError(async (req, res, next) => {
      const refreshToken = req.cookies.refreshToken;
     if (!refreshToken) return res.sendStatus(401);
@@ -166,6 +168,7 @@ module.exports= {
     signin,
     changePassword,
     verifyToken,
+    firebaseToken,
     refreshToken,
     logout
 };
