@@ -45,7 +45,7 @@ module.exports = (sequelize, DataTypes) => {
       },
       content: {
         type: DataTypes.TEXT,
-        allowNull: false,
+        allowNull: true, // media-only messages (attachments with no caption) have no text content
       },
       is_pinned: {
         type: DataTypes.BOOLEAN,
@@ -59,6 +59,15 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.JSONB,
         allowNull: true,
         comment: "Optional message metadata (attachments, reactions, etc.)",
+      },
+      type:{
+        type: DataTypes.ENUM("text", "media"),
+        defaultValue: "text",
+        allowNull: false,
+      },
+      media:{
+        type: DataTypes.JSONB,
+        allowNull: true
       },
     },
     {

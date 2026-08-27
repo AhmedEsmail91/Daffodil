@@ -134,13 +134,17 @@ module.exports = {
       createdAt: new Date(),
       updatedAt: new Date()
       }));
-      const doctorRolePermissions = permissions.map(permission => ({
-      id: uuidv4(),
-      role_id: doctorRoleId,
-      permission_id: permission.id,
-      createdAt: new Date(),
-      updatedAt: new Date()
-      }));
+      // Doctors get a scoped subset (not the full admin permission set) so the
+      // doctor-only route gate (src/routes/doctor/index.routes.js) is meaningful.
+      const doctorRolePermissions = permissions
+        .filter(permission => doctorPermissions.includes(permission.name))
+        .map(permission => ({
+          id: uuidv4(),
+          role_id: doctorRoleId,
+          permission_id: permission.id,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }));
 
       await queryInterface.bulkInsert('RolePermissions', [...userRolePermissions,...adminRolePermissions,...doctorRolePermissions]);
     }

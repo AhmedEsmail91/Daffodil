@@ -48,7 +48,7 @@
           key: 'id'
         },
         onUpdate: 'CASCADE',
-        onDelete: 'SET NULL'
+        onDelete: 'RESTRICT'
       },
       patient_id:{
         type: DataTypes.UUID,
@@ -58,7 +58,7 @@
           key: 'id'
         },
         onUpdate: 'CASCADE',
-        onDelete: 'SET NULL'
+        onDelete: 'RESTRICT'
       },
       type:{
         type: DataTypes.ENUM('consultation', 'follow-up', 'emergency'),
@@ -85,7 +85,7 @@
           key: 'id'
         },
         onUpdate: 'CASCADE',
-        onDelete: 'CASCADE'
+        onDelete: 'RESTRICT'
       },
       createdAt: {
         allowNull: false,

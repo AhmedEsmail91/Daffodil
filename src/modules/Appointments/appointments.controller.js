@@ -253,10 +253,10 @@ const createAppointment = catchError(async (req, res,next) => {
     return next(new AppError('Scope not found',404));
   }
   // handle images
-  if (req.files.images && req.files.images.length) {
+  if (req.files && req.files.images && req.files.images.length) {
     const images = req.files.images;
     appointmentData.images = images.map(image => ({
-      path: image.path.replace(/\\/g, '/').split('uploads/').pop(),
+      url: image.url,
       name: image.originalname
     }));
   }

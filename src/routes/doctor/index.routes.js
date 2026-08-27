@@ -7,7 +7,10 @@ const router=Router();
 
 
 const prefix='doctor'
-router.use(Auth.Authenticate);
+const manage_roles=['schedule-read','appointment-read'];
+router.use(Auth.Authenticate,
+    Auth.allowedToAnd(...manage_roles)
+);
 
 router.use(`/${prefix}`,schedulesRoute);
 router.use(`/${prefix}`,appointmentsRoute);

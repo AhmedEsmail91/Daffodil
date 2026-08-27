@@ -91,19 +91,12 @@ const Auth = class Auth {
   })
   static allowedToAnd = (...permissions) => {
     return catchError(async (req, res, next) => {
-      
-      const currentUserPermissions = await redisClient.get(`user:${req.auth.user_id}`) || 
-        await getFullUserData(req.auth.user_id)
-          .then(user => user.role.permissions.map(p => p.name)); // get the permissions from the user object from redis or DB
-      
-      // let providers = await redisClient.get(`user:${req.auth.user_id}-provider`);
-      // if (!providers) {
-      //   const user = await getFullUserData(req.auth.user_id);
-      //   providers = user.providerAccounts.map(p => p.name);
-      //   redisClient.set(`user:${req.auth.user_id}-provider`, JSON.stringify(providers)); // set the providers in redis
-      // } else {
-      //   providers = JSON.parse(providers);
-      // }
+
+      const cached = await redisClient.get(`user:${req.auth.user_id}`);
+      const currentUserPermissions = cached
+        ? JSON.parse(cached)
+        : await getFullUserData(req.auth.user_id)
+            .then(user => user.role.permissions.map(p => p.name)); // get the permissions from the user object from redis or DB
 
       if (!permissions.every(permission => currentUserPermissions?.includes(permission))) {
         return next(new AppError("You are not allowed to access this route", 403));
@@ -115,11 +108,13 @@ const Auth = class Auth {
   // Restrict route access by roles
   static allowedTo = (...permissions) => {
     return catchError(async (req, res, next) => {
-      
-      const currentUserPermissions = await redisClient.get(`user:${req.auth.user_id}`) || 
-        await getFullUserData(req.auth.user_id)
-          .then(user => user.role.permissions.map(p => p.name)); // get the permissions from the user object from redis or DB
-      
+
+      const cached = await redisClient.get(`user:${req.auth.user_id}`);
+      const currentUserPermissions = cached
+        ? JSON.parse(cached)
+        : await getFullUserData(req.auth.user_id)
+            .then(user => user.role.permissions.map(p => p.name)); // get the permissions from the user object from redis or DB
+
       if (!permissions.some(permission => currentUserPermissions?.includes(permission))) {
         return next(new AppError("You are not allowed to access this route", 403));
       }

@@ -60,7 +60,23 @@ const checksModelsName = (existingPermissions) => {
     name: "chat-manage",
     createdAt: timestamp,
     updatedAt: timestamp
-  })
+  });
+  // NOTE: the DoctorSchedule model file is named "doctorschedule.js", so the
+  // generic per-model loop above produces "doctorschedule-*" permissions, not
+  // "schedule-*". Routes/routers throughout the app (admin, doctor, patient)
+  // gate on the literal "schedule-*" names though, so seed those explicitly.
+  ['create', 'read', 'update', 'delete'].forEach(action => {
+    const permissionName = `schedule-${action}`;
+    const exists = existingPermissions.some(p => p.name === permissionName);
+    if (!exists) {
+      permissions.push({
+        id: uuidv4(),
+        name: permissionName,
+        createdAt: timestamp,
+        updatedAt: timestamp
+      });
+    }
+  });
   return permissions;
 };
 module.exports = {

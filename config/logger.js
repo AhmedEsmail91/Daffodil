@@ -19,7 +19,7 @@ const logFormat = printf(({ level, message, timestamp, stack }) => {
 
 // Create the logger with Daily Rotate File Transport
 const logger = createLogger({
-  level: 'error',
+  level: process.env.LOG_LEVEL || 'info',
   format: combine(
     timestamp(),
     errors({ stack: true }), // Capture error stack trace

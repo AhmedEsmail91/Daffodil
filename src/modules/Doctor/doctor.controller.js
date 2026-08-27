@@ -18,8 +18,9 @@ const changeUserToDoctor=catchError(async (req, res, next) => {
         approved = false
     } = req.body;
 
-    let doctor = await Doctor.findByPk(doctor_id, {
+    let doctor = await Doctor.findOne({
         where: {
+            id: doctor_id,
             approved: false
         },
         include: [{

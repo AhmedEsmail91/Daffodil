@@ -31,6 +31,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'user_id',
         as: 'providerAccounts'
       });
+      this.hasMany(models.DeviceToken, {
+        foreignKey: 'user_id',
+        as: 'deviceTokens'
+      });
       // the following association is for patients
       this.hasMany(models.Appointment, {
         foreignKey: 'patient_id',

@@ -1,6 +1,7 @@
 const adminRoute = require('./admin/index.routes.js');
 const doctorRoute = require('./doctor/index.routes.js');
 const patientRoute = require('./patient/index.routes.js');
+const sharedRoute = require('./shared/deviceToken.route.js');
 
 const authRouter = require('./../modules/Auth/local/auth.routes.js');
 const passport = require('./../../config/passport.js');
@@ -17,4 +18,7 @@ module.exports=(app,prefix)=>{
     app.use(`/${prefix}`, adminRoute);
     app.use(`/${prefix}`, doctorRoute);
     app.use(`/${prefix}`, patientRoute);
+
+    // shared, role-agnostic routes (any authenticated user)
+    app.use(`/${prefix}`, sharedRoute);
 }

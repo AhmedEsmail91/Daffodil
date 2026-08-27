@@ -11,7 +11,7 @@ const {Auth}=require('./../../middlewares/auth.js');
 
 const prefix='appointments'
 // creating appointment for patient
-router.post(`/${prefix}`, uploadFields(fields = [{name: "images",maxCount: 10}], uploadPath = 'Appointments/images', type = 'image'),
+router.post(`/${prefix}`, uploadFields([{name: "images",maxCount: 10}], 'Appointments/images', 'image'),
     validation(schemas.makeAppointment),
     createAppointment);
 

@@ -28,7 +28,7 @@ module.exports = {
           key: 'id'
         },
         onUpdate: 'CASCADE',
-        onDelete: 'SET NULL'
+        onDelete: 'RESTRICT'
       },
       schedule_id: {
         type: Sequelize.UUID,
@@ -38,7 +38,7 @@ module.exports = {
           key: 'id'
         },
         onUpdate: 'CASCADE',
-        onDelete: 'SET NULL'
+        onDelete: 'RESTRICT'
       },
       scope_id: {
         type: Sequelize.UUID,
@@ -48,7 +48,7 @@ module.exports = {
           key: 'id'
         },
         onUpdate: 'CASCADE',
-        onDelete: 'SET NULL'
+        onDelete: 'RESTRICT'
       },
       type: {
         type: Sequelize.ENUM('consultation', 'follow-up', 'emergency'),

@@ -42,13 +42,12 @@ router.get(
     }
     const payload = {
       user_id: req.user.id,
-      username: req.user.username,
+      name: req.user.username,
       role: {
         id: req.user.role.id,
         name: req.user.role.name_en,
       },
       email: req.user.email,
-      lang: req.user.preferred_lang || 'en'
     };
 
     const secret = Buffer.from(process.env.JWT_SECRET_KEY, 'base64');
@@ -57,7 +56,7 @@ router.get(
     });
     res.cookie("token", token, {
     httpOnly: true,
-    secure: true,     // HTTPS only in production
+    secure: process.env.NODE_ENV === "production",     // HTTPS only in production; local HTTP dev needs this off
     sameSite: "lax",  // or "strict" depending on UX
     maxAge: 60 * 60 * 1000,
   });

@@ -5,14 +5,31 @@ const {catchError} = require('../../../../utils/errors/catchError');
 const AppError = require("../../../../utils/errors/AppError");
 
 const redisClient=require("../../../../config/redis");
+
+const isProduction = process.env.NODE_ENV === "production";
+
+const buildPayload = (user) => ({
+    user_id: user.id,
+    name: user.username,
+    email: user.email,
+    role: user.role ? {
+        id: user.role.id,
+        name: user.role.name_en,
+    } : null
+});
+
+const signAccessToken = (payload) => {
+    const secret = Buffer.from(process.env.JWT_SECRET_KEY, 'base64');
+    return jwt.sign(payload, secret, { expiresIn: process.env.JWT_EXPIRATION || "7d" });
+};
+
+const signRefreshToken = (payload) => {
+    const secret = Buffer.from(process.env.REFRESH_JWT_SECRET_KEY, 'base64');
+    return jwt.sign(payload, secret, { expiresIn: process.env.REFRESH_JWT_EXPIRATION || "30d" });
+};
+
 // SIGNIN
 const signin = catchError(async (req, res, next) => {
-    // Ensure `io` is properly defined or remove this line if unnecessary
-    if (req.app.get('io')) {
-        req.app.get('io').emit('users', {
-            message: 'User is signing in'
-        });
-    }
     // Validate email and password presence
     const { email, password } = req.body;
     // Find user by email
@@ -51,31 +68,24 @@ const signin = catchError(async (req, res, next) => {
     }
     const permissions =user.role.permissions.map(p => p.name)
     redisClient.set(`user:${user.id}`, JSON.stringify(permissions))
-    // Generate JWT token
-    const payload={
-        user_id: user.id,
-        name: user.username,
-        email: user.email,
-        role: user.role ? {
-            id: user.role.id,
-            name: user.role.name_en,
-        } : null
-    }
-    console.log(JSON.stringify(payload))
-    const secret = Buffer.from(process.env.JWT_SECRET_KEY, 'base64');
-    const token = jwt.sign(
-        payload,
-        secret,
-        { expiresIn: process.env.JWT_EXPIRATION || "7d" }
-    );
-    
+    // Generate JWT tokens
+    const payload = buildPayload(user);
+    const token = signAccessToken(payload);
+    const refreshToken = signRefreshToken({ user_id: user.id });
+
     res.cookie("token", token, {
         httpOnly: true,   // prevents JS access (XSS protection)
-        secure: true,     // only over HTTPS
+        secure: isProduction,     // only over HTTPS in production; local HTTP dev needs this off
         sameSite: "strict", // CSRF protection
         maxAge: 60 * 60 * 1000, // 1 hour
     });
-    const resUser=payload;
+    res.cookie("refreshToken", refreshToken, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: "strict",
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    });
+    const resUser={...payload};
     resUser.contact=user.contact;
     resUser.lang=user.preferred_lang || 'en';
     res.status(200).json({ message: "Login successful", user:resUser});
@@ -94,26 +104,19 @@ const changePassword = catchError(async (req, res, next) => {
     // hashing in the db hooks of the user model
     user.password = newPassword;
     await user.save();
-    // regenerate token
-    const secret = Buffer.from(process.env.JWT_SECRET_KEY, 'base64');
-    const token = jwt.sign(
-        {
-            user_id: user.id,
-            role_id: user.role ? user.role.id : null,
-            username: user.username || null,
-            email: user.email,
-            contact: user.contact || null
-        },
-        secret,
-        { expiresIn: process.env.JWT_EXPIRATION || "7d" }
-    );
+    // regenerate token with the same payload shape used at signin/OAuth
+    const payload = buildPayload(user);
+    const token = signAccessToken(payload);
     res.cookie("token", token, {
         httpOnly: true,
-        secure: true,
+        secure: isProduction,
         sameSite: "strict",
-        maxAge: 15 * 60 * 1000,
+        maxAge: 60 * 60 * 1000,
     });
-    res.status(200).json({ message: "Password changed successfully",user });
+    const resUser={...payload};
+    resUser.contact=user.contact;
+    resUser.lang=user.preferred_lang || 'en';
+    res.status(200).json({ message: "Password changed successfully",user:resUser });
 });
 const verifyToken= catchError(async (req, res, next) => {
     const userId = req.auth.user_id;
@@ -135,24 +138,30 @@ const verifyToken= catchError(async (req, res, next) => {
 });
 
 const refreshToken= catchError(async (req, res, next) => {
-     const refreshToken = req.cookies.refreshToken;
-    if (!refreshToken) return res.sendStatus(401);
+    const token = req.cookies.refreshToken;
+    if (!token) return res.sendStatus(401);
     try {
         const secret = Buffer.from(process.env.REFRESH_JWT_SECRET_KEY, 'base64');
-    const payload = jwt.verify(refreshToken, secret);
+        const decoded = jwt.verify(token, secret);
 
-    const newAccessToken = createAccessToken({ id: payload.id });
-    res.cookie('token', newAccessToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'lax',
-      maxAge: 15 * 60 * 1000, // 15 min
-    });
+        const user = await User.findByPk(decoded.user_id, {
+            include: [{ model: Role, as: 'role', attributes: ['id', 'name_en'] }]
+        });
+        if (!user) return res.sendStatus(403);
 
-    return res.json({ ok: true });
-  } catch (err) {
-    return res.sendStatus(403); // refresh invalid
-  }
+        const payload = buildPayload(user);
+        const newAccessToken = signAccessToken(payload);
+        res.cookie('token', newAccessToken, {
+            httpOnly: true,
+            secure: isProduction,
+            sameSite: 'strict',
+            maxAge: 60 * 60 * 1000,
+        });
+
+        return res.json({ ok: true, message: "Token refreshed" });
+    } catch (err) {
+        return res.sendStatus(403); // refresh invalid or expired
+    }
 });
 const logout = catchError(async (req, res, next) => {
     res.clearCookie("token");

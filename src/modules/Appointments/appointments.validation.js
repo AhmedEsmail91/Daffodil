@@ -14,10 +14,7 @@ const makeAppointment=Joi.object({
         encoding: Joi.string().required(),
         mimetype: Joi.string().valid('image/jpeg', 'image/png','image/jpg'),
         size: Joi.number().max(10485760),
-        destination: Joi.string().required(),
-        filename: Joi.string().required(),
-        path: Joi.string()
-    })).max(10).optional(),
+    }).unknown(true)).max(10).optional(),
     scope_id: Joi.string().uuid().required()
 });
 const updateAppointmentVal=Joi.object({
